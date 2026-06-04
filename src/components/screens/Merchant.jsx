@@ -3,16 +3,18 @@ import L from 'leaflet';
 import { useLocali } from '../../context/LocaliContext';
 import { useUI } from '../../context/UIContext';
 import { getMeta } from '../../utils/overpass';
-import { PRODUCT_EMOJIS, PRODUCT_CATALOG, UNITS, EVENT_TYPES } from '../../data/constants';
+import { PRODUCT_EMOJIS, PRODUCT_CATALOG, UNITS, EVENT_TYPES, TYPE_META } from '../../data/constants';
 import { priceLabel } from '../../utils/products';
 import { loadEvents, saveEvents } from '../../utils/events';
 import { loadOrders, updateOrder, agoStr, durMin, itemsLabel, statusPill, haversine } from '../../utils/orders';
 import { setParticipation } from '../../utils/participation';
+import { addCustomShop } from '../../utils/customShops';
 import { DAY_KEYS, DAY_LABELS } from '../../utils/hours';
 
 const MKEY = 'locali.merchant';
 const eur = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
 const DEFAULT_HOURS = { Mo: { o: '08:00', c: '18:00' }, Tu: { o: '08:00', c: '18:00' }, We: { o: '08:00', c: '18:00' }, Th: { o: '08:00', c: '18:00' }, Fr: { o: '08:00', c: '18:00' }, Sa: { o: '08:00', c: '12:30' }, Su: null };
+const TYPE_OPTIONS = Object.entries(TYPE_META);
 
 function loadMerchant() {
   try {
@@ -44,7 +46,7 @@ function upsertLibrary(library, prod) {
 }
 
 export default function Merchant() {
-  const { lat, lon, city, shops } = useLocali();
+  const { lat, lon, city, shops, refreshCustom } = useLocali();
   const { toast, openShop } = useUI();
 
   const [merchant, setMerchant] = useState(loadMerchant);
@@ -56,6 +58,9 @@ export default function Merchant() {
   const [unit, setUnit] = useState('pièce');
   const [events, setEvents] = useState(loadEvents);
   const [evt, setEvt] = useState({ title: '', type: EVENT_TYPES[0], date: '', place: '' });
+  const [shopQuery, setShopQuery] = useState('');
+  const [showManual, setShowManual] = useState(false);
+  const [manual, setManual] = useState({ name: '', type: 'bakery', addr: '' });
   const [orders, setOrders] = useState(loadOrders);
   const refreshOrders = () => setOrders(loadOrders());
 
@@ -79,6 +84,26 @@ export default function Merchant() {
     toast(sh.name + ' désigné comme votre commerce');
   };
   const setDayHours = (k, val) => setMerchant((m) => ({ ...m, hours: { ...(m.hours || DEFAULT_HOURS), [k]: val } }));
+
+  // Recherche du commerce à désigner (sur TOUS les commerces, pas seulement 60)
+  const claimResults = useMemo(() => {
+    const q = shopQuery.trim().toLowerCase();
+    if (!q) return shops.slice(0, 8);
+    return shops.filter((sh) => sh.name.toLowerCase().includes(q) || getMeta(sh.type).label.toLowerCase().includes(q)).slice(0, 25);
+  }, [shops, shopQuery]);
+
+  // Ajout manuel d'un commerce absent d'OpenStreetMap
+  const addManualShop = () => {
+    if (!manual.name.trim()) { toast('Indiquez le nom du commerce'); return; }
+    if (lat == null) { toast('Position non disponible'); return; }
+    const shop = { id: 'manual/' + Date.now(), name: manual.name.trim(), type: manual.type, lat, lon, hours: null, addr: manual.addr.trim() || null, custom: true };
+    addCustomShop(shop);
+    if (refreshCustom) refreshCustom();
+    setMerchant((m) => ({ ...m, shopId: shop.id, shopName: shop.name, shopType: shop.type, shopLat: shop.lat, shopLon: shop.lon, hours: m.hours || DEFAULT_HOURS }));
+    setShowManual(false);
+    setManual({ name: '', type: 'bakery', addr: '' });
+    toast(shop.name + ' créé et désigné comme votre commerce ✓');
+  };
 
   const publishEvent = () => {
     if (!evt.title.trim()) { toast('Indiquez un titre'); return; }
@@ -339,12 +364,52 @@ export default function Merchant() {
           <div className="msec">
             <h3>Mon commerce &amp; horaires</h3>
             <p className="msec-sub">Désignez votre commerce (il sera coloré sur la carte selon votre statut) et renseignez vos horaires réels — ils s'afficheront à vos clients.</p>
-            <select className="np-family" value={merchant.shopId || ''} onChange={(e) => claimShop(e.target.value)}>
-              <option value="">— Désigner mon commerce —</option>
-              {shops.slice(0, 60).map((sh) => (
-                <option key={sh.id} value={sh.id}>{sh.name} · {getMeta(sh.type).label} · {sh.distStr}</option>
-              ))}
-            </select>
+
+            {merchant.shopId ? (
+              <div className="claim-current">
+                <span>✓ Votre commerce : <strong>{merchant.shopName}</strong></span>
+                <button className="claim-change" onClick={() => setMerchant((m) => ({ ...m, shopId: null }))}>changer</button>
+              </div>
+            ) : (
+              <>
+                <input
+                  className="np-family"
+                  type="text"
+                  placeholder="🔎 Cherchez votre commerce par nom…"
+                  value={shopQuery}
+                  onChange={(e) => setShopQuery(e.target.value)}
+                />
+                <div className="claim-list">
+                  {claimResults.length === 0 ? (
+                    <div className="empty-mini">Aucun commerce trouvé{shopQuery ? ' pour « ' + shopQuery + ' »' : ''}.</div>
+                  ) : (
+                    claimResults.map((sh) => (
+                      <button key={sh.id} className="claim-item" onClick={() => claimShop(sh.id)}>
+                        <span className="claim-name">{getMeta(sh.type).emoji} {sh.name}</span>
+                        <span className="claim-sub">{getMeta(sh.type).label} · {sh.distStr}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <button className="claim-manual-toggle" onClick={() => setShowManual((v) => !v)}>
+                  <i className="ti ti-plus" /> Mon commerce n'est pas dans la liste
+                </button>
+                {showManual && (
+                  <div className="prod-add" style={{ marginTop: 8 }}>
+                    <input className="evt-title" type="text" placeholder="Nom du commerce" value={manual.name} onChange={(e) => setManual({ ...manual, name: e.target.value })} />
+                    <div className="evt-row">
+                      <select className="evt-type" value={manual.type} onChange={(e) => setManual({ ...manual, type: e.target.value })}>
+                        {TYPE_OPTIONS.map(([k, m]) => (<option key={k} value={k}>{m.emoji} {m.label}</option>))}
+                      </select>
+                    </div>
+                    <input className="evt-place" type="text" placeholder="Adresse (optionnel)" value={manual.addr} onChange={(e) => setManual({ ...manual, addr: e.target.value })} />
+                    <button className="np-add np-add-full" onClick={addManualShop}>+ Créer mon commerce</button>
+                    <div className="claim-hint">Placé à votre position actuelle, visible par les clients du coin.</div>
+                  </div>
+                )}
+              </>
+            )}
+
             {merchant.shopId && (
               <>
                 <div className="seclabel" style={{ marginTop: 10 }}>Vos horaires (réels, affichés aux clients)</div>

@@ -1,4 +1,4 @@
-// ─── État UI partagé : navigation (historique + retour), modale, toast ─
+// ─── État UI : navigation (historique robuste), modale, toast ─
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
 const Ctx = createContext(null);
@@ -7,14 +7,17 @@ export function UIProvider({ children }) {
   const [selectedShop, setSelectedShop] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
   const [screen, setScreenState] = useState(null);
-  const [stack, setStack] = useState([]); // écrans précédents (pour le retour)
+  const [stack, setStack] = useState([]); // écrans précédents
   const timer = useRef(null);
-
-  // Réfs pour le gestionnaire popstate (bouton retour matériel / navigateur)
+  const stackRef = useRef([]);
   const shopRef = useRef(null);
+  stackRef.current = stack;
   shopRef.current = selectedShop;
 
-  const pushHist = () => { try { window.history.pushState({ locali: 1 }, ''); } catch (e) {} };
+  const arm = () => { try { window.history.pushState({ locali: 1 }, ''); } catch (e) {} };
+
+  // Sentinelle d'historique au montage → le bouton retour matériel ne quitte jamais l'app
+  useEffect(() => { arm(); }, []);
 
   const toast = useCallback((msg) => {
     setToastMsg(msg);
@@ -22,42 +25,47 @@ export function UIProvider({ children }) {
     timer.current = setTimeout(() => setToastMsg(''), 2800);
   }, []);
 
-  // Navigation "avant" : empile l'écran courant
+  // Navigation "avant" : empile l'écran courant + une entrée d'historique
   const setScreen = useCallback((next) => {
     setScreenState((cur) => {
-      if (next !== cur) {
-        if (cur != null) setStack((st) => [...st, cur]);
-        pushHist();
-      }
+      if (next !== cur) { if (cur != null) setStack((st) => [...st, cur]); arm(); }
       return next;
     });
   }, []);
 
-  // Reset (changement de rôle) : nouvel écran racine, historique vidé
-  const resetTo = useCallback((next) => {
-    setScreenState(next);
-    setStack([]);
-  }, []);
+  // Reset (changement de rôle) : nouvel écran racine, pile vidée
+  const resetTo = useCallback((next) => { setScreenState(next); setStack([]); }, []);
 
-  // Retour : ferme la modale si ouverte, sinon dépile l'écran précédent
-  const back = useCallback(() => {
-    if (shopRef.current) { setSelectedShop(null); return; }
-    setStack((st) => {
-      if (!st.length) return st;
-      setScreenState(st[st.length - 1]);
-      return st.slice(0, -1);
-    });
-  }, []);
-
-  const openShop = useCallback((s) => { setSelectedShop(s); pushHist(); }, []);
+  const openShop = useCallback((s) => setSelectedShop(s), []);
   const closeShop = useCallback(() => setSelectedShop(null), []);
 
-  // Bouton retour matériel / navigateur → même logique que le bouton Retour
+  // Bouton Retour : ferme la modale d'abord, sinon recule via l'historique navigateur
+  const back = useCallback(() => {
+    if (shopRef.current) { setSelectedShop(null); return; }
+    try { window.history.back(); } catch (e) {
+      if (stackRef.current.length) {
+        const prev = stackRef.current[stackRef.current.length - 1];
+        setScreenState(prev);
+        setStack((st) => st.slice(0, -1));
+      }
+    }
+  }, []);
+
+  // Retour matériel / navigateur (popstate) : même logique, et on RE-ARME si rien à dépiler
   useEffect(() => {
-    const onPop = () => back();
+    const onPop = () => {
+      if (shopRef.current) { setSelectedShop(null); arm(); return; }
+      if (stackRef.current.length) {
+        const prev = stackRef.current[stackRef.current.length - 1];
+        setScreenState(prev);
+        setStack((st) => st.slice(0, -1));
+      } else {
+        arm(); // on est à l'accueil → on reste dans l'app
+      }
+    };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, [back]);
+  }, []);
 
   const canGoBack = stack.length > 0 || !!selectedShop;
 

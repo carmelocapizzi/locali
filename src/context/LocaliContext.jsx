@@ -1,11 +1,21 @@
 // ─── Position de l'utilisateur + chargement des commerces ─
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { reverseGeocode, geocodePlace } from '../utils/geo';
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { reverseGeocode, geocodePlace, haversine, formatDist } from '../utils/geo';
 import { loadShops } from '../utils/overpass';
 import { loadMarkets } from '../utils/markets';
+import { loadCustomShops } from '../utils/customShops';
 import { fetchOpenAgenda, OPENAGENDA_ENABLED } from '../utils/openagenda';
 
 const Ctx = createContext(null);
+
+// Fusionne les commerces OSM avec ceux ajoutés manuellement (recalcule la distance)
+function mergeCustom(osm, la, lo) {
+  const custom = loadCustomShops().map((c) => {
+    const dist = la != null && c.lat != null ? haversine(la, lo, c.lat, c.lon) : 0;
+    return { ...c, dist, distStr: formatDist(dist) };
+  });
+  return [...custom, ...osm].sort((a, b) => a.dist - b.dist);
+}
 // Repli par défaut : Bassilly (Silly, Hainaut, Belgique)
 const FALLBACK = { lat: 50.645, lon: 3.91, city: 'Bassilly, Silly (Belgique)' };
 
@@ -35,11 +45,21 @@ export function LocaliProvider({ children }) {
   // Marchés OSM chargés autour de la position (universel)
   const [osmMarkets, setOsmMarkets] = useState([]);
 
+  const osmShopsRef = useRef([]);
+  const latRef = useRef(null);
+  const lonRef = useRef(null);
+
   const fetchShops = useCallback((la, lo) => {
     setStatus('loading');
+    latRef.current = la; lonRef.current = lo;
     return loadShops(la, lo)
-      .then((s) => { setShops(s); setStatus('ready'); })
-      .catch(() => setStatus('error'));
+      .then((s) => { osmShopsRef.current = s; setShops(mergeCustom(s, la, lo)); setStatus('ready'); })
+      .catch(() => { osmShopsRef.current = []; const merged = mergeCustom([], la, lo); setShops(merged); setStatus(merged.length ? 'ready' : 'error'); });
+  }, []);
+
+  // Re-fusionne les commerces personnalisés (après ajout manuel) sans refaire la requête OSM
+  const refreshCustom = useCallback(() => {
+    setShops(mergeCustom(osmShopsRef.current, latRef.current, lonRef.current));
   }, []);
 
   useEffect(() => {
@@ -161,7 +181,7 @@ export function LocaliProvider({ children }) {
   }, [fetchShops]);
 
   return (
-    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate, setManualLocation }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate, setManualLocation, refreshCustom }}>{children}</Ctx.Provider>
   );
 }
 

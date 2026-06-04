@@ -469,3 +469,14 @@ body{padding:16px}
 .htime{border:1.5px solid var(--g2);border-radius:8px;padding:4px 6px;font-size:12px;font-family:'DM Sans',sans-serif;color:#1a1a0e;outline:none;min-width:0;flex:1}
 .htime:focus{border-color:var(--g4)}
 .hsep{color:#aaa}
+
+/* Commerçant : désigner / chercher / ajouter son commerce */
+.claim-current{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#eef6e8;border:1px solid #cfe0c4;border-radius:12px;padding:11px 13px;font-size:13px;color:var(--g5)}
+.claim-change{background:none;border:none;color:var(--amber);font-weight:700;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;flex-shrink:0}
+.claim-list{display:flex;flex-direction:column;gap:6px;margin-top:9px;max-height:220px;overflow-y:auto}
+.claim-item{display:flex;flex-direction:column;align-items:flex-start;gap:2px;background:#fff;border:1px solid var(--g2);border-radius:10px;padding:9px 12px;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif}
+.claim-item:hover{border-color:var(--g4);background:#f7faf4}
+.claim-name{font-size:13px;font-weight:600;color:#1a1a0e}
+.claim-sub{font-size:11px;color:#aaa}
+.claim-manual-toggle{margin-top:9px;width:100%;background:#f3efe6;border:1px dashed var(--g2);border-radius:10px;padding:9px;font-size:12.5px;font-weight:600;color:var(--g5);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px}
+.claim-hint{font-size:10.5px;color:#aaa;margin-top:7px;text-align:center}

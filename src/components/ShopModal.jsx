@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useUI } from '../context/UIContext';
 import { useAuth } from '../context/AuthContext';
 import { getMeta } from '../utils/overpass';
-import { isOpenNow } from '../utils/hours';
+import { isOpenNow, formatHours } from '../utils/hours';
 import { catalogForType, merchantProductsForType, priceLabel } from '../utils/products';
 import { addOrder } from '../utils/orders';
 
@@ -92,7 +92,7 @@ export default function ShopModal() {
                 </div>
                 <div className="hour-row">
                   <span>Horaires</span>
-                  <span>{s.hours || 'Non renseignés'}</span>
+                  <span>{s.hours ? formatHours(s.hours) : 'Non renseignés (OSM)'}</span>
                 </div>
                 {s.phone && (
                   <div className="hour-row"><span>📞 Téléphone</span><span>{s.phone}</span></div>

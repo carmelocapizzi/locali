@@ -20,8 +20,8 @@ export default function StatusBar() {
   return (
     <div className="statusbar">
       <span className="time">{clock}</span>
-      <button className="role-chip" onClick={logout} title="Se déconnecter">
-        👤 {LABELS[user.role]} <i className="ti ti-logout" />
+      <button className="role-chip" onClick={logout} title="Revenir au choix de profil">
+        <i className="ti ti-arrow-back-up" /> {LABELS[user.role]} · changer
       </button>
     </div>
   );

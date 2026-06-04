@@ -9,6 +9,18 @@ const Ctx = createContext(null);
 // Repli par défaut : Bassilly (Silly, Hainaut, Belgique)
 const FALLBACK = { lat: 50.645, lon: 3.91, city: 'Bassilly, Silly (Belgique)' };
 
+// Position choisie manuellement par l'utilisateur (corrige une géoloc IP imprécise)
+const LOC_KEY = 'locali.loc';
+function readSavedLoc() {
+  try { const r = localStorage.getItem(LOC_KEY); const o = r ? JSON.parse(r) : null; return o && o.lat != null ? o : null; } catch (e) { return null; }
+}
+function saveLoc(lat, lon, label) {
+  try { localStorage.setItem(LOC_KEY, JSON.stringify({ lat, lon, label })); } catch (e) {}
+}
+function clearSavedLoc() {
+  try { localStorage.removeItem(LOC_KEY); } catch (e) {}
+}
+
 export function LocaliProvider({ children }) {
   const [lat, setLat] = useState(null);
   const [lon, setLon] = useState(null);
@@ -67,7 +79,16 @@ export function LocaliProvider({ children }) {
       return () => { cancelled = true; };
     }
 
-    // 2) Géolocalisation réelle du navigateur
+    // 2) Position choisie/corrigée par l'utilisateur et mémorisée
+    const saved = readSavedLoc();
+    if (saved) {
+      setGeo('manual');
+      setCity(saved.label || 'Position enregistrée');
+      go(saved.lat, saved.lon);
+      return () => { cancelled = true; };
+    }
+
+    // 3) Géolocalisation réelle du navigateur
     if (!navigator.geolocation) { fallback(); return; }
 
     navigator.geolocation.getCurrentPosition(
@@ -115,6 +136,7 @@ export function LocaliProvider({ children }) {
       (pos) => {
         const la = pos.coords.latitude, lo = pos.coords.longitude;
         setGeo('real'); setLat(la); setLon(lo);
+        clearSavedLoc(); // le GPS « live » remplace une éventuelle position mémorisée
         reverseGeocode(la, lo).then(setCity).catch(() => {});
         fetchShops(la, lo);
       },
@@ -123,8 +145,23 @@ export function LocaliProvider({ children }) {
     );
   }, [fetchShops]);
 
+  // Définir/corriger la position en tapant une commune (géocodée et mémorisée)
+  const setManualLocation = useCallback((query) => {
+    const q = (query || '').trim();
+    if (!q) return Promise.resolve(false);
+    setGeo('locating'); setCity('Recherche…');
+    return geocodePlace(q)
+      .then((r) => {
+        setGeo('manual'); setLat(r.lat); setLon(r.lon); setCity(r.label);
+        saveLoc(r.lat, r.lon, r.label);
+        fetchShops(r.lat, r.lon);
+        return true;
+      })
+      .catch(() => { setGeo('fallback'); setCity('Lieu introuvable — réessayez'); return false; });
+  }, [fetchShops]);
+
   return (
-    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate, setManualLocation }}>{children}</Ctx.Provider>
   );
 }
 

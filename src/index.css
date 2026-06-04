@@ -363,6 +363,10 @@ body{padding:16px}
 /* Bouton "Me localiser" dans le hero */
 .relocate-btn{margin-left:auto;background:rgba(255,255,255,0.16);color:#fff;border:none;border-radius:20px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-family:'DM Sans',sans-serif;letter-spacing:0;text-transform:none}
 .relocate-btn:active{transform:scale(0.96)}
+.loc-edit{display:flex;align-items:center;gap:6px;flex:1;margin-left:4px}
+.loc-input{flex:1;min-width:0;border:none;border-radius:14px;padding:5px 11px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:rgba(255,255,255,0.95);color:#1a1a0e;text-transform:none;letter-spacing:0}
+.loc-go{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.16);color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px}
+.loc-go:active{transform:scale(0.92)}
 
 /* ÉCRAN MARCHÉS */
 .markhead{background:var(--g4);padding:20px 22px}

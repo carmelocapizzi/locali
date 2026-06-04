@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
 import { loadOrders } from '../utils/orders';
 import StatusBar from './StatusBar';
+import TopBar from './TopBar';
 import BottomNav from './BottomNav';
 import ShopModal from './ShopModal';
 import Toast from './Toast';
@@ -32,14 +33,14 @@ const ROLE_NAV = {
 
 export default function Shell() {
   const { user } = useAuth();
-  const { screen, setScreen } = useUI();
+  const { screen, setScreen, resetTo } = useUI();
   const tabs = ROLE_NAV[user.role] || ['home'];
   const active = tabs.includes(screen) ? screen : tabs[0];
   const contentRef = useRef(null);
 
-  // Si le rôle change (ou au démarrage), on cale sur un onglet autorisé
+  // Si le rôle change (ou au démarrage), on cale sur l'onglet principal et on vide l'historique
   useEffect(() => {
-    if (!tabs.includes(screen)) setScreen(tabs[0]);
+    if (!tabs.includes(screen)) resetTo(tabs[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.role]);
 
@@ -55,6 +56,7 @@ export default function Shell() {
   return (
     <div className="frame">
       <StatusBar />
+      <TopBar />
       <div className="content" ref={contentRef}>
         <div className="screen active" key={active}>
           <Comp />

@@ -25,6 +25,15 @@ body{padding:16px}
 .rm-item.on{background:#eef6e8;color:var(--g4)}
 .rm-out{margin-top:5px;border:none;border-top:1px solid var(--g2);background:none;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:#b93020;padding:9px 10px;cursor:pointer;display:flex;align-items:center;gap:6px}
 
+/* Barre d'application : retour + profil */
+.topbar{background:var(--g5);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 9px;flex-shrink:0}
+.tb-back{background:rgba(255,255,255,0.14);color:#fff;border:none;border-radius:20px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'DM Sans',sans-serif;min-width:36px;justify-content:center}
+.tb-back:disabled{opacity:0;pointer-events:none}
+.tb-back:not(:disabled):active{transform:scale(0.95)}
+.tb-logo{font-family:'Fraunces',serif;font-size:15px;color:#b8e690;font-weight:600;white-space:nowrap}
+.tb-profile{background:#fff;color:var(--g5);border:none;border-radius:20px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;font-family:'DM Sans',sans-serif}
+.tb-profile:active{transform:scale(0.96)}
+
 /* Livreur : opportunité (commerce en essai) */
 .opp-banner{margin:12px 16px 0;background:linear-gradient(135deg,#fff3e0,#ffe7c2);border:1px solid #f0cf9a;border-radius:14px;padding:12px 14px}
 .opp-title{font-family:'Fraunces',serif;font-size:15px;color:#9a5e00;font-weight:600;margin-bottom:3px}

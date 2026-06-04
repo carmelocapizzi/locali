@@ -6,6 +6,7 @@ import { getMeta } from '../utils/overpass';
 import { isOpenNow, formatHours, isOpenNowMerchant, formatMerchantHours } from '../utils/hours';
 import { catalogForType, merchantProductsForType, priceLabel, getMerchantProfile } from '../utils/products';
 import { addOrder } from '../utils/orders';
+import { participationOf } from '../utils/participation';
 
 const eur = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
 
@@ -39,6 +40,11 @@ export default function ShopModal() {
   const stateColor = open === true ? '#2d7a0a' : open === false ? '#b93020' : '#999';
   const stateTxt = open === true ? 'Ouvert maintenant' : open === false ? 'Fermé actuellement' : 'Inconnu';
 
+  // On ne peut commander que chez un commerce participant (abonné/essai) — ou l'aperçu commerçant
+  const part = s ? (s.products && s.products.length ? 'subscribed' : participationOf(s.id)) : 'none';
+  const canOrder = part !== 'none';
+  const subLabel = !s ? '' : s.products && s.products.length ? 'Votre commerce' : part === 'subscribed' ? 'Abonné Locali ✓' : part === 'trial' ? 'En essai Locali' : 'Pas encore sur Locali';
+
   const setQ = (i, d) => setQty((q) => ({ ...q, [i]: Math.max(0, (q[i] || 0) + d) }));
 
   const placeOrder = () => {
@@ -66,7 +72,7 @@ export default function ShopModal() {
           <>
             <div className="mhead">
               <h3>{s.name}</h3>
-              <p>{meta.label} · {s.distStr} · Abonné Locali ✓</p>
+              <p>{meta.label} · {s.distStr} · {subLabel}</p>
             </div>
             <div className="mbody">
               <div
@@ -77,11 +83,10 @@ export default function ShopModal() {
               </div>
               <div className="mdesc">
                 {s.addr ? `📍 ${s.addr} — ` : ''}
-                {meta.label} référencé via OpenStreetMap, à {s.distStr} de vous. Livraison offerte
-                grâce à votre abonnement Locali 🌿.
+                {meta.label}, à {s.distStr} de vous.{canOrder ? ' Livraison offerte grâce à Locali 🌿.' : ''}
               </div>
 
-              {mineCount > 0 && (
+              {canOrder && mineCount > 0 && (
                 <div className="merchant-flag">
                   <i className="ti ti-leaf" /> {mineCount} produit{mineCount > 1 ? 's' : ''} de ce
                   commerçant disponible{mineCount > 1 ? 's' : ''} à la commande
@@ -126,33 +131,46 @@ export default function ShopModal() {
                 )}
               </div>
 
-              <div className="prodlist">
-                <h4>Commander — livraison gratuite Locali 🌿</h4>
-                {prods.map((p, i) => {
-                  const grp = p.catLabel || 'Produits du commerçant';
-                  const showHeader = i === 0 || grp !== (prods[i - 1].catLabel || 'Produits du commerçant');
-                  return (
-                    <Fragment key={i}>
-                      {showHeader && <div className="prod-group">{grp}</div>}
-                      <div className="proditem">
-                        <div className="proditem-emoji">{p.e}</div>
-                        <div className="proditem-name">{p.n}</div>
-                        <div className="proditem-price">{priceLabel(p)}</div>
-                        <div className="qty-ctrl">
-                          <button className="qty-btn" onClick={() => setQ(i, -1)}>−</button>
-                          <span className="qty-num">{qty[i] || 0}</span>
-                          <button className="qty-btn" onClick={() => setQ(i, 1)}>+</button>
-                        </div>
-                      </div>
-                    </Fragment>
-                  );
-                })}
-              </div>
+              {canOrder ? (
+                <>
+                  <div className="prodlist">
+                    <h4>Commander — livraison gratuite Locali 🌿</h4>
+                    {prods.map((p, i) => {
+                      const grp = p.catLabel || 'Produits du commerçant';
+                      const showHeader = i === 0 || grp !== (prods[i - 1].catLabel || 'Produits du commerçant');
+                      return (
+                        <Fragment key={i}>
+                          {showHeader && <div className="prod-group">{grp}</div>}
+                          <div className="proditem">
+                            <div className="proditem-emoji">{p.e}</div>
+                            <div className="proditem-name">{p.n}</div>
+                            <div className="proditem-price">{priceLabel(p)}</div>
+                            <div className="qty-ctrl">
+                              <button className="qty-btn" onClick={() => setQ(i, -1)}>−</button>
+                              <span className="qty-num">{qty[i] || 0}</span>
+                              <button className="qty-btn" onClick={() => setQ(i, 1)}>+</button>
+                            </div>
+                          </div>
+                        </Fragment>
+                      );
+                    })}
+                  </div>
 
-              {total > 0 && (
-                <div className="cart-bar" onClick={placeOrder}>
-                  <span className="cart-label">Passer la commande</span>
-                  <span className="cart-total">{eur(total)}</span>
+                  {total > 0 && (
+                    <div className="cart-bar" onClick={placeOrder}>
+                      <span className="cart-label">Passer la commande</span>
+                      <span className="cart-total">{eur(total)}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="invite-card">
+                  <div className="invite-emoji">🌱</div>
+                  <h4>Pas encore sur Locali</h4>
+                  <p>Vous aimez <strong>{s.name}</strong> ? Glissez-leur un mot sur Locali ! Chaque client qui en parle aide un commerce du coin à rejoindre l'aventure — et à offrir la livraison gratuite. 🌿</p>
+                  <button className="invite-btn" onClick={() => toast('Merci ! Votre voix fait avancer le commerce local 🌿')}>
+                    <i className="ti ti-speakerphone" /> Parler de Locali à ce commerce
+                  </button>
                 </div>
               )}
             </div>

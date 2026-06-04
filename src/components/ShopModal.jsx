@@ -3,8 +3,8 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useUI } from '../context/UIContext';
 import { useAuth } from '../context/AuthContext';
 import { getMeta } from '../utils/overpass';
-import { isOpenNow, formatHours } from '../utils/hours';
-import { catalogForType, merchantProductsForType, priceLabel } from '../utils/products';
+import { isOpenNow, formatHours, isOpenNowMerchant, formatMerchantHours } from '../utils/hours';
+import { catalogForType, merchantProductsForType, priceLabel, getMerchantProfile } from '../utils/products';
 import { addOrder } from '../utils/orders';
 
 const eur = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
@@ -31,7 +31,11 @@ export default function ShopModal() {
 
   const total = prods.reduce((acc, p, i) => acc + (qty[i] || 0) * p.p, 0);
   const meta = s ? getMeta(s.type) : null;
-  const open = s ? isOpenNow(s.hours) : null;
+  // Si ce commerce est celui du commerçant inscrit, on affiche SES horaires (saisis), sinon OSM
+  const profile = getMerchantProfile();
+  const isMine = !!(s && profile.shopId && profile.shopId === s.id && profile.hours);
+  const open = s ? (isMine ? isOpenNowMerchant(profile.hours) : isOpenNow(s.hours)) : null;
+  const hoursText = s ? (isMine ? formatMerchantHours(profile.hours) : s.hours ? formatHours(s.hours) : 'Non renseignés (OSM)') : '';
   const stateColor = open === true ? '#2d7a0a' : open === false ? '#b93020' : '#999';
   const stateTxt = open === true ? 'Ouvert maintenant' : open === false ? 'Fermé actuellement' : 'Inconnu';
 
@@ -92,8 +96,11 @@ export default function ShopModal() {
                 </div>
                 <div className="hour-row">
                   <span>Horaires</span>
-                  <span>{s.hours ? formatHours(s.hours) : 'Non renseignés (OSM)'}</span>
+                  <span>{hoursText}</span>
                 </div>
+                {isMine && (
+                  <div className="hour-row"><span /><span style={{ color: 'var(--g4)', fontWeight: 600 }}>✓ confirmés par le commerçant</span></div>
+                )}
                 <div className="hour-row">
                   <span>🔎 Vérifier</span>
                   <span

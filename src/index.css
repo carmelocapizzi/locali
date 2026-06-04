@@ -402,3 +402,38 @@ body{padding:16px}
 .evt-type{flex:1;min-width:0}
 .evt-date{width:150px;flex-shrink:0}
 .evt-place{width:100%}
+
+/* Carte : statut de participation */
+.map-pin.pin-none{opacity:.5;filter:grayscale(1)}
+.map-pin.pin-trial{box-shadow:0 0 0 2px #2980b9,0 3px 7px rgba(0,0,0,.28)}
+.map-pin.pin-sub{box-shadow:0 0 0 2px var(--g4),0 3px 7px rgba(0,0,0,.28)}
+.map-legend{display:flex;gap:14px;justify-content:center;padding:10px 12px 0;font-size:11px;color:#999}
+.map-legend span{display:inline-flex;align-items:center;gap:5px}
+.ldot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.ldot-sub{background:var(--g4)}
+.ldot-trial{background:#2980b9}
+.ldot-none{background:#b9b3a6}
+.mapitem-none{opacity:.62}
+.mapitem-none .mapicon{filter:grayscale(1)}
+
+/* Livreur : niveau & progression */
+.lvlcard{margin:12px 16px 0;background:linear-gradient(135deg,#1e2f50,#16233d);border-radius:16px;padding:14px 16px;color:#fff}
+.lvltop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:9px;gap:8px}
+.lvlname{font-family:'Fraunces',serif;font-size:17px;font-weight:600}
+.lvlnum{font-size:11px;color:rgba(255,255,255,0.6);white-space:nowrap}
+.lvlbar{height:9px;border-radius:6px;background:rgba(255,255,255,0.15);overflow:hidden}
+.lvlfill{height:100%;background:linear-gradient(90deg,#4caf50,#a8e060);border-radius:6px;transition:width .4s}
+.lvlsub{font-size:11.5px;color:rgba(255,255,255,0.75);margin-top:7px}
+.lvlperk{font-size:11.5px;color:#a8e060;font-weight:600;margin-top:6px;display:flex;align-items:center;gap:6px}
+.course-alert{margin:12px 16px 0;background:#fff3e0;border:1px solid #f3d9b0;color:#9a5e00;border-radius:12px;padding:9px 13px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+
+/* Commerçant : éditeur d'horaires */
+.hours-editor{background:#fff;border:1px solid var(--g2);border-radius:12px;padding:8px 12px}
+.hrow{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #f0ede5}
+.hrow:last-child{border-bottom:none}
+.hday{width:36px;font-size:12px;font-weight:600;color:#1a1a0e}
+.htoggle{border:1.5px solid var(--g2);background:#fff;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;color:#bbb;cursor:pointer;font-family:'DM Sans',sans-serif;width:68px;flex-shrink:0}
+.htoggle.on{background:#eef6e8;border-color:#cfe0c4;color:var(--g4)}
+.htime{border:1.5px solid var(--g2);border-radius:8px;padding:4px 6px;font-size:12px;font-family:'DM Sans',sans-serif;color:#1a1a0e;outline:none;min-width:0;flex:1}
+.htime:focus{border-color:var(--g4)}
+.hsep{color:#aaa}

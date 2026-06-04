@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocali } from '../../context/LocaliContext';
 import { useUI } from '../../context/UIContext';
 import { useAuth } from '../../context/AuthContext';
 import { getMeta } from '../../utils/overpass';
 import { loadOrders, updateOrder, itemsLabel, agoStr, isToday, haversine, formatDist } from '../../utils/orders';
+import { courierProgress } from '../../utils/courier';
 
 export default function Delivery() {
   const { lat, lon } = useLocali();
@@ -21,6 +22,31 @@ export default function Delivery() {
   const available = useMemo(() => orders.filter((o) => o.status === 'accepted' && inRadius(o)), [orders, radius, lat, lon]);
   const mine = useMemo(() => orders.filter((o) => o.status === 'delivering' && o.courier === courier), [orders, courier]);
   const deliveredToday = useMemo(() => orders.filter((o) => o.status === 'delivered' && o.courier === courier && isToday(o.deliveredAt)).length, [orders, courier]);
+
+  // Programme livreur : niveaux basés sur les VRAIES livraisons effectuées
+  const totalDelivered = useMemo(() => orders.filter((o) => o.status === 'delivered' && o.courier === courier).length, [orders, courier]);
+  const prog = courierProgress(totalDelivered);
+  const lastAvail = useRef(0);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+  }, []);
+  // Notification de montée de niveau
+  useEffect(() => {
+    let last = 1;
+    try { last = +(localStorage.getItem('locali.courierLevel') || 1); } catch (e) {}
+    if (prog.cur.lvl > last) {
+      try { if (window.Notification && Notification.permission === 'granted') new Notification('🎉 Niveau débloqué : ' + prog.cur.name, { body: prog.cur.perk }); } catch (e) {}
+    }
+    try { localStorage.setItem('locali.courierLevel', String(prog.cur.lvl)); } catch (e) {}
+  }, [prog.cur.lvl, prog.cur.name, prog.cur.perk]);
+  // Notification de nouvelle course
+  useEffect(() => {
+    if (available.length > lastAvail.current && lastAvail.current !== 0) {
+      try { if (window.Notification && Notification.permission === 'granted') new Notification('🚲 Nouvelle course disponible', { body: available.length + ' course(s) près de vous' }); } catch (e) {}
+    }
+    lastAvail.current = available.length;
+  }, [available.length]);
 
   const take = (o) => { updateOrder(o.id, { status: 'delivering', courier, deliveringAt: Date.now() }); refresh(); toast('Course acceptée 🚴 — ' + o.shopName); };
   const confirm = (o) => { updateOrder(o.id, { status: 'delivered', deliveredAt: Date.now() }); refresh(); toast('Réception confirmée ✓ — livrée à ' + (o.client || 'client')); };
@@ -43,6 +69,23 @@ export default function Delivery() {
         <div className="dstat"><div className="val">{mine.length}</div><div className="lbl">En cours</div></div>
         <div className="dstat"><div className="val">{deliveredToday}</div><div className="lbl">Livrées aujourd'hui</div></div>
       </div>
+
+      {/* Programme livreur : niveau + barre de progression (données réelles) */}
+      <div className="lvlcard">
+        <div className="lvltop">
+          <span className="lvlname">{prog.cur.emoji} {prog.cur.name}</span>
+          <span className="lvlnum">Niveau {prog.cur.lvl} · {totalDelivered} livraison{totalDelivered > 1 ? 's' : ''}</span>
+        </div>
+        <div className="lvlbar"><div className="lvlfill" style={{ width: prog.pct + '%' }} /></div>
+        <div className="lvlsub">
+          {prog.next ? `Plus que ${prog.toNext} livraison${prog.toNext > 1 ? 's' : ''} pour ${prog.next.emoji} ${prog.next.name}` : 'Niveau maximum atteint 🏆'}
+        </div>
+        <div className="lvlperk"><i className="ti ti-gift" /> {prog.cur.perk}</div>
+      </div>
+
+      {available.length > 0 && (
+        <div className="course-alert"><i className="ti ti-bell-ringing" /> {available.length} course{available.length > 1 ? 's' : ''} disponible{available.length > 1 ? 's' : ''} à proximité !</div>
+      )}
 
       <div style={{ padding: '6px 16px 0' }}>
         <div className="radius-chips dradius">

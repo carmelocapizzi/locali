@@ -7,9 +7,12 @@ import { PRODUCT_EMOJIS, PRODUCT_CATALOG, UNITS, EVENT_TYPES } from '../../data/
 import { priceLabel } from '../../utils/products';
 import { loadEvents, saveEvents } from '../../utils/events';
 import { loadOrders, updateOrder, agoStr, durMin, itemsLabel, statusPill, haversine } from '../../utils/orders';
+import { setParticipation } from '../../utils/participation';
+import { DAY_KEYS, DAY_LABELS } from '../../utils/hours';
 
 const MKEY = 'locali.merchant';
 const eur = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
+const DEFAULT_HOURS = { Mo: { o: '08:00', c: '18:00' }, Tu: { o: '08:00', c: '18:00' }, We: { o: '08:00', c: '18:00' }, Th: { o: '08:00', c: '18:00' }, Fr: { o: '08:00', c: '18:00' }, Sa: { o: '08:00', c: '12:30' }, Su: null };
 
 function loadMerchant() {
   try {
@@ -22,10 +25,15 @@ function loadMerchant() {
       if (!library.length && products.length) {
         library = products.map((p) => ({ e: p.e, n: p.n, p: p.p, sells: p.sells || [], unit: p.unit || 'pièce' }));
       }
-      return { subscribed: !!m.subscribed, trialUntil: m.trialUntil || null, products, library };
+      return {
+        subscribed: !!m.subscribed, trialUntil: m.trialUntil || null, products, library,
+        shopId: m.shopId || null, shopName: m.shopName || null, shopType: m.shopType || null,
+        shopLat: m.shopLat != null ? m.shopLat : null, shopLon: m.shopLon != null ? m.shopLon : null,
+        hours: m.hours || null,
+      };
     }
   } catch (e) {}
-  return { subscribed: false, trialUntil: null, products: [], library: [] };
+  return { subscribed: false, trialUntil: null, products: [], library: [], shopId: null, shopName: null, shopType: null, shopLat: null, shopLon: null, hours: null };
 }
 
 // Mémorise un produit dans la bibliothèque (récurrents), sans doublon de nom
@@ -36,7 +44,7 @@ function upsertLibrary(library, prod) {
 }
 
 export default function Merchant() {
-  const { lat, lon, city } = useLocali();
+  const { lat, lon, city, shops } = useLocali();
   const { toast, openShop } = useUI();
 
   const [merchant, setMerchant] = useState(loadMerchant);
@@ -56,6 +64,21 @@ export default function Merchant() {
   }, [merchant]);
 
   useEffect(() => { saveEvents(events); }, [events]);
+
+  // Synchronise la participation du commerce désigné (selon abonnement / essai)
+  useEffect(() => {
+    if (!merchant.shopId) return;
+    const status = merchant.subscribed ? 'subscribed' : (merchant.trialUntil && Date.now() < merchant.trialUntil ? 'trial' : 'none');
+    setParticipation(merchant.shopId, status);
+  }, [merchant.shopId, merchant.subscribed, merchant.trialUntil]);
+
+  const claimShop = (id) => {
+    const sh = shops.find((x) => x.id === id);
+    if (!sh) { setMerchant((m) => ({ ...m, shopId: null })); return; }
+    setMerchant((m) => ({ ...m, shopId: sh.id, shopName: sh.name, shopType: sh.type, shopLat: sh.lat, shopLon: sh.lon, hours: m.hours || DEFAULT_HOURS }));
+    toast(sh.name + ' désigné comme votre commerce');
+  };
+  const setDayHours = (k, val) => setMerchant((m) => ({ ...m, hours: { ...(m.hours || DEFAULT_HOURS), [k]: val } }));
 
   const publishEvent = () => {
     if (!evt.title.trim()) { toast('Indiquez un titre'); return; }
@@ -309,6 +332,43 @@ export default function Merchant() {
                     </div>
                   );
                 })}
+              </>
+            )}
+          </div>
+
+          <div className="msec">
+            <h3>Mon commerce &amp; horaires</h3>
+            <p className="msec-sub">Désignez votre commerce (il sera coloré sur la carte selon votre statut) et renseignez vos horaires réels — ils s'afficheront à vos clients.</p>
+            <select className="np-family" value={merchant.shopId || ''} onChange={(e) => claimShop(e.target.value)}>
+              <option value="">— Désigner mon commerce —</option>
+              {shops.slice(0, 60).map((sh) => (
+                <option key={sh.id} value={sh.id}>{sh.name} · {getMeta(sh.type).label} · {sh.distStr}</option>
+              ))}
+            </select>
+            {merchant.shopId && (
+              <>
+                <div className="seclabel" style={{ marginTop: 10 }}>Vos horaires (réels, affichés aux clients)</div>
+                <div className="hours-editor">
+                  {DAY_KEYS.map((k) => {
+                    const d = (merchant.hours || DEFAULT_HOURS)[k];
+                    const openDay = !!d;
+                    return (
+                      <div className="hrow" key={k}>
+                        <span className="hday">{DAY_LABELS[k]}</span>
+                        <button className={'htoggle' + (openDay ? ' on' : '')} onClick={() => setDayHours(k, openDay ? null : { o: '08:00', c: '18:00' })}>
+                          {openDay ? 'Ouvert' : 'Fermé'}
+                        </button>
+                        {openDay && (
+                          <>
+                            <input type="time" className="htime" value={d.o} onChange={(e) => setDayHours(k, { ...d, o: e.target.value })} />
+                            <span className="hsep">–</span>
+                            <input type="time" className="htime" value={d.c} onChange={(e) => setDayHours(k, { ...d, c: e.target.value })} />
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </>
             )}
           </div>

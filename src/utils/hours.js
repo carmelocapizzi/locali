@@ -78,6 +78,35 @@ function readableDays(dayPart) {
   }).join(', ');
 }
 
+// ── Horaires saisis par le commerçant (structurés, réels) ──
+// h = { Mo:{o:'08:00',c:'18:00'}, ..., Su:null }  (null/absent = fermé)
+const DAY_FULL = { Mo: 'Lun', Tu: 'Mar', We: 'Mer', Th: 'Jeu', Fr: 'Ven', Sa: 'Sam', Su: 'Dim' };
+export const DAY_KEYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+export const DAY_LABELS = DAY_FULL;
+
+export function formatMerchantHours(h) {
+  if (!h) return null;
+  const parts = [];
+  for (const k of DAY_KEYS) {
+    const d = h[k];
+    if (d && d.o && d.c) parts.push(DAY_FULL[k] + ' ' + fmtT(+d.o.split(':')[0], d.o.split(':')[1]) + '–' + fmtT(+d.c.split(':')[0], d.c.split(':')[1]));
+  }
+  return parts.length ? parts.join(' · ') : 'Fermé toute la semaine';
+}
+
+export function isOpenNowMerchant(h) {
+  if (!h) return null;
+  const now = new Date();
+  const code = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][now.getDay()];
+  const d = h[code];
+  if (!d || !d.o || !d.c) return false;
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const s = +d.o.split(':')[0] * 60 + +d.o.split(':')[1];
+  let e = +d.c.split(':')[0] * 60 + +d.c.split(':')[1];
+  if (e <= s) e += 1440;
+  return mins >= s && mins < e;
+}
+
 export function formatHours(oh) {
   if (!oh) return null;
   if (/24\/7/.test(oh)) return '24h/24, 7j/7';

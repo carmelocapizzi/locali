@@ -48,6 +48,11 @@ export function getMerchantProducts() {
   }
 }
 
+// Profil commerçant complet (abonnement, commerce désigné, horaires…)
+export function getMerchantProfile() {
+  try { const r = localStorage.getItem('locali.merchant'); return r ? JSON.parse(r) : {}; } catch (e) { return {}; }
+}
+
 // Produits du commerçant pertinents pour un type de commerce donné
 // (ex. ses produits "bakery" remontent sur les boulangeries de la carte).
 export function merchantProductsForType(type) {

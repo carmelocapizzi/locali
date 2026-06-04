@@ -480,3 +480,20 @@ body{padding:16px}
 .claim-sub{font-size:11px;color:#aaa}
 .claim-manual-toggle{margin-top:9px;width:100%;background:#f3efe6;border:1px dashed var(--g2);border-radius:10px;padding:9px;font-size:12.5px;font-weight:600;color:var(--g5);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px}
 .claim-hint{font-size:10.5px;color:#aaa;margin-top:7px;text-align:center}
+
+/* ─── Plein écran responsive (mobile / fenêtres courtes) ─── */
+/* Sur petit écran, le cadre occupe tout l'écran : les barres haut (Profil/Retour)
+   et bas (onglets) restent toujours visibles, seul le contenu défile. */
+@media (max-width: 480px), (max-height: 880px) {
+  html, body { height: 100%; display: block; }
+  body { padding: 0; }
+  .frame {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0 auto;
+  }
+}

@@ -1,14 +1,17 @@
 // Fiche boutique + commande (livraison gratuite Locali)
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useUI } from '../context/UIContext';
+import { useAuth } from '../context/AuthContext';
 import { getMeta } from '../utils/overpass';
 import { isOpenNow } from '../utils/hours';
 import { catalogForType, merchantProductsForType, priceLabel } from '../utils/products';
+import { addOrder } from '../utils/orders';
 
 const eur = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
 
 export default function ShopModal() {
   const { selectedShop: s, closeShop, toast } = useUI();
+  const { user } = useAuth();
   // Liste de commande :
   //  - aperçu commerçant : ses propres produits ;
   //  - vrai commerce : les produits du commerçant correspondant à sa catégorie
@@ -35,8 +38,17 @@ export default function ShopModal() {
   const setQ = (i, d) => setQty((q) => ({ ...q, [i]: Math.max(0, (q[i] || 0) + d) }));
 
   const placeOrder = () => {
+    const items = prods
+      .map((p, i) => ({ e: p.e, n: p.n, p: p.p, unit: p.unit || null, qty: qty[i] || 0 }))
+      .filter((it) => it.qty > 0);
+    if (!items.length) { toast('Ajoutez au moins un article'); return; }
+    addOrder({
+      shopName: s.name, shopType: s.type,
+      lat: s.lat != null ? s.lat : null, lon: s.lon != null ? s.lon : null,
+      items, total, client: (user && user.name) || 'Client',
+    });
     closeShop();
-    toast('Commande passée ! Livraison gratuite Locali 🌿');
+    toast('Commande envoyée ✓ — en attente de validation du commerçant');
   };
 
   return (

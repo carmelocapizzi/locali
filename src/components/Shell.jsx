@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUI } from '../context/UIContext';
+import { loadOrders } from '../utils/orders';
 import StatusBar from './StatusBar';
 import BottomNav from './BottomNav';
 import ShopModal from './ShopModal';
@@ -17,7 +18,7 @@ const SCREEN_META = {
   home:     { label: 'Accueil',   icon: 'ti-home',           Comp: Home },
   map:      { label: 'Carte',     icon: 'ti-map',            Comp: MapScreen },
   markets:  { label: 'Agenda',    icon: 'ti-calendar-event', Comp: Markets },
-  orders:   { label: 'Commandes', icon: 'ti-shopping-bag',   Comp: Orders, badge: 3 },
+  orders:   { label: 'Commandes', icon: 'ti-shopping-bag',   Comp: Orders },
   merchant: { label: 'Commerce',  icon: 'ti-building-store', Comp: Merchant },
   delivery: { label: 'Livreur',   icon: 'ti-bike',           Comp: Delivery },
 };
@@ -48,7 +49,8 @@ export default function Shell() {
   }, [active]);
 
   const Comp = SCREEN_META[active].Comp;
-  const items = tabs.map((k) => ({ key: k, ...SCREEN_META[k] }));
+  const activeOrders = loadOrders().filter((o) => o.status !== 'delivered').length;
+  const items = tabs.map((k) => ({ key: k, ...SCREEN_META[k], badge: k === 'orders' ? (activeOrders || null) : SCREEN_META[k].badge }));
 
   return (
     <div className="frame">

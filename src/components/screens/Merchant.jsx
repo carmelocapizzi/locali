@@ -3,10 +3,10 @@ import L from 'leaflet';
 import { useLocali } from '../../context/LocaliContext';
 import { useUI } from '../../context/UIContext';
 import { getMeta } from '../../utils/overpass';
-import { buildLocalDeliveries, agoStr, hashStr } from '../../utils/deliveries';
 import { PRODUCT_EMOJIS, PRODUCT_CATALOG, UNITS, EVENT_TYPES } from '../../data/constants';
 import { priceLabel } from '../../utils/products';
 import { loadEvents, saveEvents } from '../../utils/events';
+import { loadOrders, updateOrder, agoStr, durMin, itemsLabel, statusPill, haversine } from '../../utils/orders';
 
 const MKEY = 'locali.merchant';
 const eur = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
@@ -36,7 +36,7 @@ function upsertLibrary(library, prod) {
 }
 
 export default function Merchant() {
-  const { lat, lon, city, shops } = useLocali();
+  const { lat, lon, city } = useLocali();
   const { toast, openShop } = useUI();
 
   const [merchant, setMerchant] = useState(loadMerchant);
@@ -48,6 +48,8 @@ export default function Merchant() {
   const [unit, setUnit] = useState('pièce');
   const [events, setEvents] = useState(loadEvents);
   const [evt, setEvt] = useState({ title: '', type: EVENT_TYPES[0], date: '', place: '' });
+  const [orders, setOrders] = useState(loadOrders);
+  const refreshOrders = () => setOrders(loadOrders());
 
   useEffect(() => {
     try { localStorage.setItem(MKEY, JSON.stringify(merchant)); } catch (e) {}
@@ -75,12 +77,14 @@ export default function Merchant() {
   const trial = !merchant.subscribed && merchant.trialUntil && Date.now() < merchant.trialUntil;
   const trialDays = merchant.trialUntil ? Math.max(0, Math.ceil((merchant.trialUntil - Date.now()) / 86400000)) : 0;
 
-  // ── Livraisons déjà effectuées autour (toujours visible) ──
-  const dels = useMemo(() => buildLocalDeliveries(shops, radius), [shops, radius]);
-  const pool = useMemo(() => shops.filter((s) => s.dist <= radius * 1000), [shops, radius]);
-  const weekly = Math.round(pool.length * 1.6) + (hashStr('week|' + radius) % 18) + 6;
-  const avg = dels.length ? Math.round(dels.reduce((a, d) => a + d.dur, 0) / dels.length) : 0;
-  const couriers = new Set(dels.map((d) => d.courier)).size;
+  // ── Données RÉELLES issues des commandes (aucun chiffre fictif) ──
+  const inRadius = (o) => { const d = (lat != null && o.lat != null) ? haversine(lat, lon, o.lat, o.lon) : null; return d == null || d <= radius * 1000; };
+  const incoming = useMemo(() => orders.filter((o) => o.status === 'pending').sort((a, b) => b.createdAt - a.createdAt), [orders]);
+  const inProgress = useMemo(() => orders.filter((o) => o.status === 'accepted' || o.status === 'delivering').sort((a, b) => b.createdAt - a.createdAt), [orders]);
+  const delivered = useMemo(() => orders.filter((o) => o.status === 'delivered' && inRadius(o)), [orders, radius, lat, lon]);
+  const deliveredCount = delivered.length;
+  const avg = delivered.length ? Math.round(delivered.reduce((a, o) => a + (durMin(o.createdAt, o.deliveredAt) || 0), 0) / delivered.length) : 0;
+  const couriers = new Set(delivered.map((o) => o.courier).filter(Boolean)).size;
 
   const mapEl = useRef(null);
   const mapRef = useRef(null);
@@ -108,17 +112,22 @@ export default function Merchant() {
     circleRef.current = circle;
     map.fitBounds(circle.getBounds(), { padding: [18, 18] });
     layer.clearLayers();
-    dels.forEach((d) => {
-      L.marker([d.shop.lat, d.shop.lon], {
+    delivered.forEach((o) => {
+      if (o.lat == null) return;
+      const d = durMin(o.createdAt, o.deliveredAt);
+      L.marker([o.lat, o.lon], {
         icon: L.divIcon({ html: '<div class="deliv-dot"></div>', className: '', iconSize: [14, 14], iconAnchor: [7, 7] }),
-      }).addTo(layer).bindPopup(`<b>${d.shop.name}</b><br>Livré en ${d.dur} min · ${d.courier}<br><small>${agoStr(d.minsAgo)}</small>`);
+      }).addTo(layer).bindPopup(`<b>${o.shopName}</b><br>Livré${d ? ' en ' + d + ' min' : ''}${o.courier ? ' · ' + o.courier : ''}<br><small>${agoStr(o.deliveredAt)}</small>`);
     });
-  }, [dels, radius, lat, lon]);
+  }, [delivered, radius, lat, lon]);
 
   // ── Actions abonnement ──
   const subscribe = () => { setMerchant((m) => ({ ...m, subscribed: true, trialUntil: null })); toast('Abonnement Pro activé 🌿'); };
   const startTrial = () => { setMerchant((m) => ({ ...m, trialUntil: Date.now() + 7 * 86400000 })); toast('Accès gratuit 7 jours activé ✓'); };
   const cancel = () => { setMerchant((m) => ({ ...m, subscribed: false, trialUntil: null })); toast('Abonnement désactivé'); };
+
+  // ── Validation des commandes par le commerçant ──
+  const acceptOrder = (o) => { updateOrder(o.id, { status: 'accepted', acceptedAt: Date.now() }); refreshOrders(); toast('Commande validée ✓ — disponible pour un livreur'); };
 
   // ── Gestion des produits ──
   const addProduct = () => {
@@ -215,10 +224,10 @@ export default function Merchant() {
 
       {/* TEASER toujours visible : livraisons déjà effectuées dans le rayon */}
       <div className="msec">
-        <h3>Livraisons autour de vous</h3>
+        <h3>Livraisons réalisées autour de vous</h3>
         <p className="msec-sub">
-          Courses déjà effectuées par les livreurs Locali dans votre rayon d'action — la preuve que
-          la livraison locale tourne déjà près de votre commerce.
+          Les livraisons effectuées via Locali dans votre rayon d'action s'affichent ici au fur et à
+          mesure. Données réelles — vide tant qu'aucune livraison n'a eu lieu.
         </p>
         <div className="radius-chips">
           {[3, 5, 10].map((km) => (
@@ -227,25 +236,26 @@ export default function Merchant() {
         </div>
         <div className="merchant-mapwrap">
           <div id="merchant-map" ref={mapEl} />
-          <div className="mm-badge"><strong>{weekly}</strong> livraisons cette semaine</div>
+          <div className="mm-badge"><strong>{deliveredCount}</strong> livraison{deliveredCount > 1 ? 's' : ''} dans {radius} km</div>
         </div>
         <div className="deliv-stats">
-          <div className="dstat2"><div className="v">{weekly}</div><div className="l">Courses livrées<br />dans {radius} km</div></div>
-          <div className="dstat2"><div className="v">{avg || '—'}<small>min</small></div><div className="l">Temps moyen<br />de livraison</div></div>
-          <div className="dstat2"><div className="v">{couriers || '—'}</div><div className="l">Livreurs Locali<br />actifs autour</div></div>
+          <div className="dstat2"><div className="v">{deliveredCount}</div><div className="l">Livraisons<br />dans {radius} km</div></div>
+          <div className="dstat2"><div className="v">{avg || '—'}{avg ? <small>min</small> : null}</div><div className="l">Temps moyen<br />de livraison</div></div>
+          <div className="dstat2"><div className="v">{couriers || '—'}</div><div className="l">Livreurs<br />impliqués</div></div>
         </div>
-        <div className="seclabel">Activité récente dans le rayon</div>
-        {dels.length === 0 ? (
-          <div className="empty-mini">Aucune livraison enregistrée dans ce rayon pour le moment.<br />Élargissez le rayon pour voir l'activité voisine.</div>
+        <div className="seclabel">Dernières livraisons</div>
+        {delivered.length === 0 ? (
+          <div className="empty-mini">Aucune livraison pour l'instant.<br />Elles apparaîtront dès qu'une commande aura été livrée.</div>
         ) : (
-          dels.slice(0, 12).map((d, i) => {
-            const meta = getMeta(d.shop.type);
+          delivered.slice().sort((a, b) => b.deliveredAt - a.deliveredAt).slice(0, 12).map((o) => {
+            const meta = getMeta(o.shopType);
+            const d = durMin(o.createdAt, o.deliveredAt);
             return (
-              <div className="dfeed-item" key={i} onClick={() => mapRef.current && mapRef.current.setView([d.shop.lat, d.shop.lon], 15)}>
+              <div className="dfeed-item" key={o.id} onClick={() => mapRef.current && o.lat != null && mapRef.current.setView([o.lat, o.lon], 15)}>
                 <div className="dfeed-ic" style={{ background: meta.bg }}>{meta.emoji}</div>
                 <div className="dfeed-main">
-                  <div className="dfeed-shop">{d.shop.name} <span className="dfeed-check">✓ livré</span></div>
-                  <div className="dfeed-sub">Livré en {d.dur} min · {d.courier} · {d.shop.distStr} · {agoStr(d.minsAgo)}</div>
+                  <div className="dfeed-shop">{o.shopName} <span className="dfeed-check">✓ livré</span></div>
+                  <div className="dfeed-sub">{d ? 'Livré en ' + d + ' min' : 'Livré'}{o.courier ? ' · ' + o.courier : ''} · {agoStr(o.deliveredAt)}</div>
                 </div>
               </div>
             );
@@ -266,6 +276,43 @@ export default function Merchant() {
         </div>
       ) : (
         <>
+          <div className="msec">
+            <h3>Commandes reçues</h3>
+            <p className="msec-sub">Validez les commandes de vos clients : une fois validée, elle devient disponible pour un livreur.</p>
+            {incoming.length === 0 && inProgress.length === 0 ? (
+              <div className="empty-mini">Aucune commande pour le moment. Les commandes de vos clients arrivent ici.</div>
+            ) : (
+              <>
+                {incoming.map((o) => (
+                  <div className="ordcard" key={o.id} style={{ margin: '0 0 10px' }}>
+                    <div className="ordtop">
+                      <div><div className="ordshop">{getMeta(o.shopType).emoji} {o.shopName}</div><div className="ordnum">{o.ref} · {o.client} · {agoStr(o.createdAt)}</div></div>
+                      <span className="spill s-prep">À valider</span>
+                    </div>
+                    <div className="orditems">{itemsLabel(o.items)}</div>
+                    <div className="ordfooter">
+                      <span className="ordtotal">{eur(o.total)}</span>
+                      <button className="ordbtn" onClick={() => acceptOrder(o)}>Valider la commande</button>
+                    </div>
+                  </div>
+                ))}
+                {inProgress.map((o) => {
+                  const pill = statusPill(o.status);
+                  return (
+                    <div className="ordcard" key={o.id} style={{ margin: '0 0 10px' }}>
+                      <div className="ordtop">
+                        <div><div className="ordshop">{getMeta(o.shopType).emoji} {o.shopName}</div><div className="ordnum">{o.ref} · {o.client}</div></div>
+                        <span className={'spill ' + pill.c}>{pill.t}</span>
+                      </div>
+                      <div className="orditems">{itemsLabel(o.items)}<br />{o.status === 'accepted' ? "→ en attente d'un livreur" : '→ en livraison' + (o.courier ? ' par ' + o.courier : '')}</div>
+                      <div className="ordfooter"><span className="ordtotal">{eur(o.total)}</span></div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+
           <div className="msec">
             <h3>Vos produits à la commande</h3>
             <p className="msec-sub">
@@ -377,13 +424,6 @@ export default function Merchant() {
             <button className="view-client-btn" disabled={!avail.length} onClick={viewAsClient}>
               <i className="ti ti-eye" /> Voir la fiche comme un client
             </button>
-          </div>
-
-          <div className="statsgrid">
-            <div className="statcard"><div className="statval">127</div><div className="statlbl">Commandes ce mois</div><div className="stattrend">↑ +18%</div></div>
-            <div className="statcard"><div className="statval">38</div><div className="statlbl">Livraisons Locali</div><div className="stattrend">↑ +6 cette semaine</div></div>
-            <div className="statcard"><div className="statval">4.8★</div><div className="statlbl">Note moyenne</div><div className="stattrend">89 avis</div></div>
-            <div className="statcard"><div className="statval">1,2k</div><div className="statlbl">Vues profil</div><div className="stattrend">↑ +24%</div></div>
           </div>
 
           <div className="msec">

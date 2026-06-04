@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getMeta } from '../../utils/overpass';
 import { loadOrders, updateOrder, itemsLabel, agoStr, isToday, haversine, formatDist } from '../../utils/orders';
 import { courierProgress } from '../../utils/courier';
+import { participationOf } from '../../utils/participation';
 
 export default function Delivery() {
   const { lat, lon } = useLocali();
@@ -19,7 +20,13 @@ export default function Delivery() {
   const dist = (o) => (lat != null && o.lat != null ? haversine(lat, lon, o.lat, o.lon) : null);
   const inRadius = (o) => { const d = dist(o); return d == null || d <= radius * 1000; };
 
-  const available = useMemo(() => orders.filter((o) => o.status === 'accepted' && inRadius(o)), [orders, radius, lat, lon]);
+  const partOf = (o) => participationOf(o.shopId);
+  const available = useMemo(
+    () => orders.filter((o) => o.status === 'accepted' && inRadius(o))
+      .sort((a, b) => (partOf(b) === 'trial' ? 1 : 0) - (partOf(a) === 'trial' ? 1 : 0)),
+    [orders, radius, lat, lon]
+  );
+  const trialCount = available.filter((o) => partOf(o) === 'trial').length;
   const mine = useMemo(() => orders.filter((o) => o.status === 'delivering' && o.courier === courier), [orders, courier]);
   const deliveredToday = useMemo(() => orders.filter((o) => o.status === 'delivered' && o.courier === courier && isToday(o.deliveredAt)).length, [orders, courier]);
 
@@ -83,7 +90,15 @@ export default function Delivery() {
         <div className="lvlperk"><i className="ti ti-gift" /> {prog.cur.perk}</div>
       </div>
 
-      {available.length > 0 && (
+      {trialCount > 0 && (
+        <div className="opp-banner">
+          <div className="opp-title">✨ Nouvelle opportunité</div>
+          <div className="opp-text">
+            {trialCount} commerce{trialCount > 1 ? 's' : ''} en <strong>période d'essai</strong> près de vous — assurez leurs livraisons pour les convaincre de rejoindre l'aventure 🌿
+          </div>
+        </div>
+      )}
+      {available.length > 0 && trialCount === 0 && (
         <div className="course-alert"><i className="ti ti-bell-ringing" /> {available.length} course{available.length > 1 ? 's' : ''} disponible{available.length > 1 ? 's' : ''} à proximité !</div>
       )}
 
@@ -109,10 +124,11 @@ export default function Delivery() {
           const meta = getMeta(o.shopType);
           const d = dist(o);
           const taken = o.status === 'delivering';
+          const isTrial = partOf(o) === 'trial';
           return (
-            <div className="pickcard" key={o.id}>
+            <div className={'pickcard' + (isTrial ? ' opp' : '')} key={o.id}>
               <div className="pickhead" style={{ background: meta.color }}>
-                <span>{meta.emoji} {o.shopName.length > 22 ? o.shopName.slice(0, 22) + '…' : o.shopName}</span>
+                <span>{meta.emoji} {o.shopName.length > 18 ? o.shopName.slice(0, 18) + '…' : o.shopName} {isTrial && <span className="opp-chip">✨ Essai</span>}</span>
                 <span className="picktime"><i className="ti ti-clock" style={{ fontSize: 10 }} /> {agoStr(o.acceptedAt || o.createdAt)}</span>
               </div>
               <div className="pickbody">

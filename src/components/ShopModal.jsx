@@ -47,7 +47,7 @@ export default function ShopModal() {
       .filter((it) => it.qty > 0);
     if (!items.length) { toast('Ajoutez au moins un article'); return; }
     addOrder({
-      shopName: s.name, shopType: s.type,
+      shopId: s.id, shopName: s.name, shopType: s.type,
       lat: s.lat != null ? s.lat : null, lon: s.lon != null ? s.lon : null,
       items, total, client: (user && user.name) || 'Client',
     });

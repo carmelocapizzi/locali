@@ -31,7 +31,15 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  return <AuthCtx.Provider value={{ user, login, logout }}>{children}</AuthCtx.Provider>;
+  // Bascule de profil sans déconnexion (Client / Livreur / Commerçant)
+  const switchRole = (role) => {
+    if (!user || role === user.role) return;
+    const u = { ...user, role };
+    try { localStorage.setItem(KEY, JSON.stringify(u)); } catch (e) {}
+    setUser(u);
+  };
+
+  return <AuthCtx.Provider value={{ user, login, logout, switchRole }}>{children}</AuthCtx.Provider>;
 }
 
 export const useAuth = () => useContext(AuthCtx);

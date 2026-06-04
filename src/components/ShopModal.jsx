@@ -94,6 +94,15 @@ export default function ShopModal() {
                   <span>Horaires</span>
                   <span>{s.hours ? formatHours(s.hours) : 'Non renseignés (OSM)'}</span>
                 </div>
+                <div className="hour-row">
+                  <span>🔎 Vérifier</span>
+                  <span
+                    style={{ color: 'var(--blue)', cursor: 'pointer' }}
+                    onClick={() => window.open('https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([s.name, s.addr || '', 'Belgique'].filter(Boolean).join(' ')), '_blank')}
+                  >
+                    Horaires sur Google ↗
+                  </span>
+                </div>
                 {s.phone && (
                   <div className="hour-row"><span>📞 Téléphone</span><span>{s.phone}</span></div>
                 )}

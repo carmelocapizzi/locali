@@ -399,6 +399,16 @@ body{padding:16px}
 .loc-input{flex:1;min-width:0;border:none;border-radius:14px;padding:5px 11px;font-size:12px;font-family:'DM Sans',sans-serif;outline:none;background:rgba(255,255,255,0.95);color:#1a1a0e;text-transform:none;letter-spacing:0}
 .loc-go{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.16);color:#fff;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px}
 .loc-go:active{transform:scale(0.92)}
+/* Panneau de position : GPS + saisie commune (repli quand le GPS échoue) */
+.loc-panel{margin-bottom:14px;display:flex;flex-direction:column;gap:8px}
+.loc-gps{background:rgba(255,255,255,0.16);color:#fff;border:none;border-radius:20px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;font-family:'DM Sans',sans-serif;align-self:flex-start}
+.loc-gps:active{transform:scale(0.97)}
+.loc-form{display:flex;gap:6px}
+.loc-form input{flex:1;min-width:0;border:none;border-radius:14px;padding:9px 13px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;background:rgba(255,255,255,0.96);color:#1a1a0e}
+.loc-form input::placeholder{color:#bbb}
+.loc-form button{flex-shrink:0;width:38px;border-radius:14px;background:#b8e690;color:#1a1a0e;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px}
+.loc-form button:active{transform:scale(0.94)}
+.loc-msg{font-size:11px;color:#ffd9a0;line-height:1.4;text-transform:none;letter-spacing:0}
 
 /* ÉCRAN MARCHÉS */
 .markhead{background:var(--g4);padding:20px 22px}

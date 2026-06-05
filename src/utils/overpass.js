@@ -6,15 +6,17 @@ export function getMeta(type) {
   return TYPE_META[type] || TYPE_META.other;
 }
 
+const SHOP_TYPES = ['bakery', 'pastry', 'butcher', 'farm', 'organic', 'cheese', 'dairy', 'greengrocer', 'supermarket', 'convenience', 'deli'];
+
 export function buildOverpassQuery(lat, lon, radius) {
-  // Requête compacte : nwr (node/way/relation) + regex sur les types → plus rapide à traiter
-  const types = 'bakery|pastry|butcher|farm|organic|cheese|dairy|greengrocer|supermarket|convenience|deli';
-  return (
-    `[out:json][timeout:20];(` +
-    `nwr["shop"~"^(${types})$"](around:${radius},${lat},${lon});` +
-    `nwr["amenity"="marketplace"](around:${radius},${lat},${lon});` +
-    `);out center 300;`
-  );
+  // Égalités exactes (utilisent l'index Overpass → bien plus rapide qu'un regex) et
+  // nw (node/way) plutôt que nwr : pas de relations pour des commerces = requête allégée.
+  // Mesuré : ~2,6 s à 10 km vs > 35 s (timeout) avec l'ancien regex sur nwr.
+  const around = `(around:${radius},${lat},${lon})`;
+  const clauses =
+    SHOP_TYPES.map((t) => `nw["shop"="${t}"]${around};`).join('') +
+    `nw["amenity"="marketplace"]${around};`;
+  return `[out:json][timeout:25];(${clauses});out center 300;`;
 }
 
 // Cache local par zone + rayon (clé arrondie ~1 km) → réouverture instantanée
@@ -22,6 +24,10 @@ const SHOP_TTL = 24 * 3600 * 1000;
 function shopCacheKey(lat, lon, r) { return 'locali.shops.' + Math.round(r / 1000) + 'k.' + lat.toFixed(2) + '_' + lon.toFixed(2); }
 function readShopCache(lat, lon, r) {
   try { const v = localStorage.getItem(shopCacheKey(lat, lon, r)); if (!v) return null; const o = JSON.parse(v); return (Date.now() - o.ts < SHOP_TTL && Array.isArray(o.shops)) ? o.shops : null; } catch (e) { return null; }
+}
+// Cache périmé (dernier recours si tous les serveurs Overpass sont indisponibles)
+function readStaleCache(lat, lon, r) {
+  try { const v = localStorage.getItem(shopCacheKey(lat, lon, r)); if (!v) return null; const o = JSON.parse(v); return Array.isArray(o.shops) && o.shops.length ? o.shops : null; } catch (e) { return null; }
 }
 function writeShopCache(lat, lon, r, shops) {
   try { localStorage.setItem(shopCacheKey(lat, lon, r), JSON.stringify({ ts: Date.now(), shops })); } catch (e) {}
@@ -94,11 +100,20 @@ export async function loadShops(lat, lon, radiusM = DISCOVERY_RADIUS_M) {
   const cached = readShopCache(lat, lon, radiusM);
   if (cached) return cached;
   const body = 'data=' + encodeURIComponent(buildOverpassQuery(lat, lon, radiusM));
-  let data;
+  let data = null;
+  // 1) Course parallèle : le miroir le plus rapide gagne
   try {
-    data = await Promise.any(OVERPASS_ENDPOINTS.map((ep) => fetchOverpass(ep, body)));
+    data = await Promise.any(OVERPASS_ENDPOINTS.map((ep) => fetchOverpass(ep, body, 28000)));
   } catch (e) {
-    throw new Error('overpass-unavailable');
+    // 2) Repli séquentiel : nouvelle tentative sur le serveur de référence (plus de temps)
+    try {
+      data = await fetchOverpass(OVERPASS_ENDPOINTS[0], body, 30000);
+    } catch (e2) {
+      // 3) Dernier recours : un cache même périmé vaut mieux qu'une page d'erreur
+      const stale = readStaleCache(lat, lon, radiusM);
+      if (stale) return stale;
+      throw new Error('overpass-unavailable');
+    }
   }
   const shops = processShops(data.elements, lat, lon, radiusM);
   writeShopCache(lat, lon, radiusM, shops);

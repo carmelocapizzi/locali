@@ -29,13 +29,18 @@ export async function reverseGeocode(lat, lon) {
   return city + (country ? ', ' + country : '');
 }
 
-// Géocodage direct (recherche d'un lieu) -> { lat, lon, label }
+// Géocodage direct (commune / code postal) -> { lat, lon, label }
+// Biais Belgique : un code postal comme « 1430 » ou « Rebecq » est résolu correctement.
 export async function geocodePlace(query) {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&accept-language=fr`
-  );
+  const q = encodeURIComponent(String(query).trim());
+  const url =
+    `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1` +
+    `&accept-language=fr&countrycodes=be&addressdetails=1`;
+  const res = await fetch(url);
   const d = await res.json();
   if (!d || !d.length) throw new Error('place-not-found');
-  const label = (d[0].display_name || query).split(',').slice(0, 2).join(', ');
+  const a = d[0].address || {};
+  const town = a.village || a.town || a.city || a.municipality || a.suburb || '';
+  const label = town ? town + (a.postcode ? ' ' + a.postcode : '') : (d[0].display_name || query).split(',').slice(0, 2).join(', ');
   return { lat: parseFloat(d[0].lat), lon: parseFloat(d[0].lon), label };
 }

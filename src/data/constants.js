@@ -5,9 +5,8 @@ export const DISCOVERY_RADIUS_M = 8000; // rayon de découverte client (8 km)
 // Plusieurs miroirs interrogés EN PARALLÈLE (le plus rapide gagne)
 export const OVERPASS_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
-  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
 ];
 
 export const TYPE_META = {

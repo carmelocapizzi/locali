@@ -7,16 +7,24 @@ export function getMeta(type) {
 }
 
 export function buildOverpassQuery(lat, lon, radius) {
-  const types = ['bakery', 'pastry', 'butcher', 'farm', 'organic', 'cheese', 'dairy', 'greengrocer', 'supermarket', 'convenience', 'deli'];
-  const parts = types
-    .map(
-      (t) =>
-        `node["shop"="${t}"](around:${radius},${lat},${lon});` +
-        `way["shop"="${t}"](around:${radius},${lat},${lon});`
-    )
-    .join('');
-  const market = `node["amenity"="marketplace"](around:${radius},${lat},${lon});way["amenity"="marketplace"](around:${radius},${lat},${lon});`;
-  return `[out:json][timeout:25];(${parts}${market});out center 200;`;
+  // Requête compacte : nwr (node/way/relation) + regex sur les types → plus rapide à traiter
+  const types = 'bakery|pastry|butcher|farm|organic|cheese|dairy|greengrocer|supermarket|convenience|deli';
+  return (
+    `[out:json][timeout:20];(` +
+    `nwr["shop"~"^(${types})$"](around:${radius},${lat},${lon});` +
+    `nwr["amenity"="marketplace"](around:${radius},${lat},${lon});` +
+    `);out center 300;`
+  );
+}
+
+// Cache local par zone (clé arrondie ~1 km) → réouverture instantanée
+const SHOP_TTL = 24 * 3600 * 1000;
+function shopCacheKey(lat, lon) { return 'locali.shops.' + lat.toFixed(2) + '_' + lon.toFixed(2); }
+function readShopCache(lat, lon) {
+  try { const r = localStorage.getItem(shopCacheKey(lat, lon)); if (!r) return null; const o = JSON.parse(r); return (Date.now() - o.ts < SHOP_TTL && Array.isArray(o.shops)) ? o.shops : null; } catch (e) { return null; }
+}
+function writeShopCache(lat, lon, shops) {
+  try { localStorage.setItem(shopCacheKey(lat, lon), JSON.stringify({ ts: Date.now(), shops })); } catch (e) {}
 }
 
 export function determineType(tags) {
@@ -70,20 +78,29 @@ function processShops(elements, lat, lon) {
   return out;
 }
 
-// Essaie plusieurs serveurs Overpass jusqu'à en obtenir un qui répond
+// Un seul endpoint, avec timeout dur (AbortController)
+export function fetchOverpass(ep, body, ms = 22000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  return fetch(ep, { method: 'POST', body, signal: ctrl.signal })
+    .then((r) => { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+    .then((d) => { if (!d || !d.elements) throw new Error('no elements'); return d; })
+    .finally(() => clearTimeout(t));
+}
+
+// Interroge TOUS les miroirs Overpass EN PARALLÈLE → le plus rapide gagne.
+// Zone déjà chargée récemment → renvoi instantané depuis le cache.
 export async function loadShops(lat, lon) {
-  const query = buildOverpassQuery(lat, lon, DISCOVERY_RADIUS_M);
-  let data = null;
-  for (const ep of OVERPASS_ENDPOINTS) {
-    try {
-      const res = await fetch(ep, { method: 'POST', body: 'data=' + encodeURIComponent(query) });
-      if (!res.ok) continue;
-      const json = await res.json();
-      if (json && json.elements) { data = json; break; }
-    } catch (e) {
-      /* on essaie l'endpoint suivant */
-    }
+  const cached = readShopCache(lat, lon);
+  if (cached) return cached;
+  const body = 'data=' + encodeURIComponent(buildOverpassQuery(lat, lon, DISCOVERY_RADIUS_M));
+  let data;
+  try {
+    data = await Promise.any(OVERPASS_ENDPOINTS.map((ep) => fetchOverpass(ep, body)));
+  } catch (e) {
+    throw new Error('overpass-unavailable');
   }
-  if (!data) throw new Error('overpass-unavailable');
-  return processShops(data.elements, lat, lon);
+  const shops = processShops(data.elements, lat, lon);
+  writeShopCache(lat, lon, shops);
+  return shops;
 }

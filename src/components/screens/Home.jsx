@@ -42,7 +42,7 @@ export default function Home() {
 
   const countTxt =
     status === 'ready'
-      ? `${shops.length} commerces locaux dans un rayon de 15 km`
+      ? `${shops.length} commerces locaux dans un rayon de 8 km`
       : status === 'error'
       ? 'Chargement impossible'
       : status === 'loading'

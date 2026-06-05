@@ -3,6 +3,7 @@
 // autour de la position. Enrichi par une liste vérifiée là où elle existe.
 import { OVERPASS_ENDPOINTS, LOCAL_MARKETS } from '../data/constants';
 import { haversine, formatDist } from './geo';
+import { fetchOverpass } from './overpass';
 
 const DAY_NAMES = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const CODE = { Su: 0, Mo: 1, Tu: 2, We: 3, Th: 4, Fr: 5, Sa: 6 };
@@ -54,40 +55,32 @@ function parseNextFromHours(oh, now) {
 }
 
 // Charge les marchés OSM autour de la position (fonctionne partout dans le monde)
-export async function loadMarkets(lat, lon, radiusKm = 30) {
+export async function loadMarkets(lat, lon, radiusKm = 25) {
   const r = radiusKm * 1000;
-  const q =
-    `[out:json][timeout:25];(` +
-    `node["amenity"="marketplace"](around:${r},${lat},${lon});` +
-    `way["amenity"="marketplace"](around:${r},${lat},${lon});` +
-    `relation["amenity"="marketplace"](around:${r},${lat},${lon});` +
-    `);out center 100;`;
-  for (const ep of OVERPASS_ENDPOINTS) {
-    try {
-      const res = await fetch(ep, { method: 'POST', body: 'data=' + encodeURIComponent(q) });
-      if (!res.ok) continue;
-      const data = await res.json();
-      if (data && data.elements) {
-        const seen = new Set();
-        const out = [];
-        for (const el of data.elements) {
-          const name = el.tags && el.tags.name;
-          if (!name || seen.has(name)) continue;
-          const la = el.lat != null ? el.lat : el.center && el.center.lat;
-          const lo = el.lon != null ? el.lon : el.center && el.center.lon;
-          if (la == null || lo == null) continue;
-          seen.add(name);
-          out.push({
-            id: 'osm-' + el.type + '/' + el.id, name, lat: la, lon: lo,
-            hours: el.tags.opening_hours || null,
-            addr: el.tags['addr:city'] || el.tags['addr:street'] || '',
-          });
-        }
-        return out;
-      }
-    } catch (e) { /* endpoint suivant */ }
+  const q = `[out:json][timeout:20];(nwr["amenity"="marketplace"](around:${r},${lat},${lon}););out center 60;`;
+  const body = 'data=' + encodeURIComponent(q);
+  let data;
+  try {
+    data = await Promise.any(OVERPASS_ENDPOINTS.map((ep) => fetchOverpass(ep, body, 15000)));
+  } catch (e) {
+    return [];
   }
-  return [];
+  const seen = new Set();
+  const out = [];
+  for (const el of data.elements) {
+    const name = el.tags && el.tags.name;
+    if (!name || seen.has(name)) continue;
+    const la = el.lat != null ? el.lat : el.center && el.center.lat;
+    const lo = el.lon != null ? el.lon : el.center && el.center.lon;
+    if (la == null || lo == null) continue;
+    seen.add(name);
+    out.push({
+      id: 'osm-' + el.type + '/' + el.id, name, lat: la, lon: lo,
+      hours: el.tags.opening_hours || null,
+      addr: el.tags['addr:city'] || el.tags['addr:street'] || '',
+    });
+  }
+  return out;
 }
 
 // Fusionne marchés vérifiés (curés) + marchés OSM, triés par prochaine date

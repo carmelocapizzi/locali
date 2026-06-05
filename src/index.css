@@ -537,6 +537,14 @@ body{padding:16px}
 .hiw-ok{width:100%;background:var(--g5);color:#fff;border:none;border-radius:14px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
 .hiw-ok:active{transform:scale(0.98)}
 
+/* Retour commerçant : activité & ROI */
+.roi-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+.roi-stat{background:var(--g1);border-radius:12px;padding:12px 6px;text-align:center}
+.roi-val{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--g5);line-height:1.1}
+.roi-lbl{font-size:10px;color:#888;margin-top:4px;line-height:1.2}
+.roi-split{font-size:12px;color:#666;text-align:center;margin-bottom:8px}
+.roi-sponsor{font-size:12px;color:#7a5a2a;background:#fff7ec;border:1px solid #f0dcc0;border-radius:10px;padding:10px 12px;line-height:1.5}
+
 /* Publication d'événements (commerçant) */
 .evt-add{background:#fff;border:1px solid var(--g2);border-radius:12px;padding:12px;margin-bottom:12px}
 .evt-add input,.evt-add select{font-family:'DM Sans',sans-serif;font-size:13px;border:1.5px solid var(--g2);border-radius:10px;padding:9px 11px;outline:none;color:#1a1a0e;background:#fff}

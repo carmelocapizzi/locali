@@ -8,6 +8,7 @@ import { courierProgress } from '../../utils/courier';
 import { participationOf } from '../../utils/participation';
 import { courierCashFor, eur, COURIER_FEE, COURIER_BATCH_BONUS } from '../../utils/delivery';
 import { allCourierPerks } from '../../utils/shopConfig';
+import { sponsoredShopIds } from '../../utils/sponsors';
 import HowItWorks from '../HowItWorks';
 
 export default function Delivery() {
@@ -26,12 +27,14 @@ export default function Delivery() {
   const inRadius = (o) => { const d = dist(o); return d == null || d <= radius * 1000; };
 
   const partOf = (o) => participationOf(o.shopId);
-  // Seules les commandes EN LIVRAISON arrivent au livreur (les retraits en magasin n'en ont pas besoin)
-  const available = useMemo(
-    () => orders.filter((o) => o.status === 'accepted' && o.fulfillment !== 'pickup' && inRadius(o))
-      .sort((a, b) => (partOf(b) === 'trial' ? 1 : 0) - (partOf(a) === 'trial' ? 1 : 0)),
-    [orders, radius, lat, lon]
-  );
+  // Seules les commandes EN LIVRAISON arrivent au livreur (les retraits en magasin n'en ont pas besoin).
+  // Priorité : commerces sponsors d'abord, puis en période d'essai.
+  const available = useMemo(() => {
+    const sp = sponsoredShopIds();
+    const score = (o) => (sp.has(o.shopId) ? 2 : 0) + (partOf(o) === 'trial' ? 1 : 0);
+    return orders.filter((o) => o.status === 'accepted' && o.fulfillment !== 'pickup' && inRadius(o))
+      .sort((a, b) => score(b) - score(a));
+  }, [orders, radius, lat, lon]);
   const trialCount = available.filter((o) => partOf(o) === 'trial').length;
   const mine = useMemo(() => orders.filter((o) => o.status === 'delivering' && o.courier === courier), [orders, courier]);
   const deliveredToday = useMemo(() => orders.filter((o) => o.status === 'delivered' && o.courier === courier && isToday(o.deliveredAt)).length, [orders, courier]);

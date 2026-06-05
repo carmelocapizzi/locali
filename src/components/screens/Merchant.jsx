@@ -112,6 +112,23 @@ export default function Merchant() {
     else { upsertSponsor({ id: sponsorId, name: merchant.shopName || 'Commerce local', type: merchant.shopType, active: true }); setIsSponsor(true); toast('Merci ! Vous sponsorisez les livraisons du quartier 🤝'); }
   };
 
+  // Retour commerçant : ventes réelles passées via l'app + impact du sponsoring
+  const mySales = useMemo(() => {
+    const mine = orders.filter((o) => o.shopId === merchant.shopId);
+    const done = mine.filter((o) => o.status === 'delivered');
+    const revenue = done.reduce((a, o) => a + (o.total || 0), 0);
+    return {
+      count: done.length, revenue, avg: done.length ? revenue / done.length : 0,
+      deliv: done.filter((o) => o.fulfillment !== 'pickup').length,
+      pickup: done.filter((o) => o.fulfillment === 'pickup').length,
+      active: mine.filter((o) => o.status === 'accepted' || o.status === 'delivering').length,
+    };
+  }, [orders, merchant.shopId]);
+  const sponsorImpact = useMemo(() => {
+    if (!isSponsor || merchant.shopLat == null) return 0;
+    return orders.filter((o) => o.status === 'delivered' && o.fulfillment !== 'pickup' && o.lat != null && haversine(merchant.shopLat, merchant.shopLon, o.lat, o.lon) <= 8000).length;
+  }, [orders, isSponsor, merchant.shopLat, merchant.shopLon]);
+
   const claimShop = (id) => {
     const sh = shops.find((x) => x.id === id);
     if (!sh) { setMerchant((m) => ({ ...m, shopId: null })); return; }
@@ -362,6 +379,21 @@ export default function Merchant() {
         </div>
       ) : (
         <>
+          <div className="msec">
+            <h3>Votre activité Locali</h3>
+            <p className="msec-sub">Ce que l'app vous a apporté — ventes réelles, sans rien changer à vos prix.</p>
+            <div className="roi-grid">
+              <div className="roi-stat"><div className="roi-val">{mySales.count}</div><div className="roi-lbl">ventes via l'app</div></div>
+              <div className="roi-stat"><div className="roi-val">{eur(mySales.revenue)}</div><div className="roi-lbl">chiffre d'affaires</div></div>
+              <div className="roi-stat"><div className="roi-val">{eur(mySales.avg)}</div><div className="roi-lbl">panier moyen</div></div>
+            </div>
+            <div className="roi-split">🚲 {mySales.deliv} livrée{mySales.deliv > 1 ? 's' : ''} · 🏪 {mySales.pickup} en retrait{mySales.active ? ' · ⏳ ' + mySales.active + ' en cours' : ''}</div>
+            {isSponsor && (
+              <div className="roi-sponsor">🤝 <strong>Sponsor :</strong> votre nom a accompagné <strong>{sponsorImpact}</strong> livraison{sponsorImpact > 1 ? 's' : ''} offerte{sponsorImpact > 1 ? 's' : ''} autour de vous — autant de fois où des voisins ont vu que vous soutenez le commerce local.</div>
+            )}
+            {mySales.count === 0 && <div className="empty-mini" style={{ marginTop: 8 }}>Pas encore de vente via l'app. Vos commandes validées apparaîtront ici avec leur chiffre.</div>}
+          </div>
+
           <div className="msec">
             <h3>Commandes reçues</h3>
             <p className="msec-sub">Validez les commandes de vos clients : une fois validée, elle devient disponible pour un livreur.</p>

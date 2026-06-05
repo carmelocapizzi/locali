@@ -29,3 +29,7 @@ export function pickSponsor() {
   if (!a.length) return null;
   return a[Math.floor(Date.now() / 3600000) % a.length];
 }
+// Ensemble des shopId sponsors (l'id sponsor est 'sp-' + shopId) → priorité dans l'app
+export function sponsoredShopIds() {
+  return new Set(activeSponsors().map((s) => String(s.id || '').replace(/^sp-/, '')));
+}

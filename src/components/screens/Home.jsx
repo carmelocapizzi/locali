@@ -8,6 +8,7 @@ import { buildMarkets } from '../../utils/markets';
 import { buildEvents } from '../../utils/events';
 import ShopCard from '../ShopCard';
 import HowItWorks from '../HowItWorks';
+import { sponsoredShopIds } from '../../utils/sponsors';
 
 export default function Home() {
   const { lat, lon, city, shops, status, geo, geoMsg, extEvents, osmMarkets, radiusKm, setRadiusKm, retry, locate, setPlace } = useLocali();
@@ -21,6 +22,9 @@ export default function Home() {
     let base = cat === 'all' ? shops : shops.filter((s) => s.type === cat);
     const t = q.trim().toLowerCase();
     if (t) base = base.filter((s) => s.name.toLowerCase().includes(t) || getMeta(s.type).label.toLowerCase().includes(t));
+    // Les commerces sponsors passent en priorité (tri stable → la distance est conservée sinon)
+    const sp = sponsoredShopIds();
+    if (sp.size) base = [...base].sort((a, b) => (sp.has(b.id) ? 1 : 0) - (sp.has(a.id) ? 1 : 0));
     return base.slice(0, 24);
   }, [shops, cat, q]);
 

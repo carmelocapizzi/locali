@@ -55,7 +55,7 @@ function parseNextFromHours(oh, now) {
 }
 
 // Charge les marchés OSM autour de la position (fonctionne partout dans le monde)
-export async function loadMarkets(lat, lon, radiusKm = 25) {
+export async function loadMarkets(lat, lon, radiusKm = 20) {
   const r = radiusKm * 1000;
   const q = `[out:json][timeout:20];(nwr["amenity"="marketplace"](around:${r},${lat},${lon}););out center 60;`;
   const body = 'data=' + encodeURIComponent(q);
@@ -104,6 +104,7 @@ export function buildMarkets(lat, lon, osmMarkets = [], radiusKm = 30, now = new
   for (const s of osmMarkets) {
     if (out.some((m) => haversine(m.lat, m.lon, s.lat, s.lon) < 1500)) continue;
     const dist = lat != null ? haversine(lat, lon, s.lat, s.lon) : null;
+    if (dist != null && dist > radiusKm * 1000) continue; // limité au rayon choisi
     const next = parseNextFromHours(s.hours, now);
     out.push({
       id: s.id, name: s.name, commune: '', place: s.addr || '', lat: s.lat, lon: s.lon,

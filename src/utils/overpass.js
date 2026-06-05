@@ -17,14 +17,14 @@ export function buildOverpassQuery(lat, lon, radius) {
   );
 }
 
-// Cache local par zone (clé arrondie ~1 km) → réouverture instantanée
+// Cache local par zone + rayon (clé arrondie ~1 km) → réouverture instantanée
 const SHOP_TTL = 24 * 3600 * 1000;
-function shopCacheKey(lat, lon) { return 'locali.shops.' + lat.toFixed(2) + '_' + lon.toFixed(2); }
-function readShopCache(lat, lon) {
-  try { const r = localStorage.getItem(shopCacheKey(lat, lon)); if (!r) return null; const o = JSON.parse(r); return (Date.now() - o.ts < SHOP_TTL && Array.isArray(o.shops)) ? o.shops : null; } catch (e) { return null; }
+function shopCacheKey(lat, lon, r) { return 'locali.shops.' + Math.round(r / 1000) + 'k.' + lat.toFixed(2) + '_' + lon.toFixed(2); }
+function readShopCache(lat, lon, r) {
+  try { const v = localStorage.getItem(shopCacheKey(lat, lon, r)); if (!v) return null; const o = JSON.parse(v); return (Date.now() - o.ts < SHOP_TTL && Array.isArray(o.shops)) ? o.shops : null; } catch (e) { return null; }
 }
-function writeShopCache(lat, lon, shops) {
-  try { localStorage.setItem(shopCacheKey(lat, lon), JSON.stringify({ ts: Date.now(), shops })); } catch (e) {}
+function writeShopCache(lat, lon, r, shops) {
+  try { localStorage.setItem(shopCacheKey(lat, lon, r), JSON.stringify({ ts: Date.now(), shops })); } catch (e) {}
 }
 
 export function determineType(tags) {
@@ -42,7 +42,7 @@ export function determineType(tags) {
   return 'other';
 }
 
-function processShops(elements, lat, lon) {
+function processShops(elements, lat, lon, radiusM) {
   const seen = new Set();
   const out = [];
   for (const el of elements) {
@@ -52,7 +52,7 @@ function processShops(elements, lat, lon) {
     const elLon = el.lon != null ? el.lon : el.center && el.center.lon;
     if (elLat == null || elLon == null) continue;
     const dist = haversine(lat, lon, elLat, elLon);
-    if (dist > DISCOVERY_RADIUS_M + 500) continue;
+    if (dist > radiusM + 500) continue;
     seen.add(name);
     const t = el.tags;
     out.push({
@@ -90,17 +90,17 @@ export function fetchOverpass(ep, body, ms = 22000) {
 
 // Interroge TOUS les miroirs Overpass EN PARALLÈLE → le plus rapide gagne.
 // Zone déjà chargée récemment → renvoi instantané depuis le cache.
-export async function loadShops(lat, lon) {
-  const cached = readShopCache(lat, lon);
+export async function loadShops(lat, lon, radiusM = DISCOVERY_RADIUS_M) {
+  const cached = readShopCache(lat, lon, radiusM);
   if (cached) return cached;
-  const body = 'data=' + encodeURIComponent(buildOverpassQuery(lat, lon, DISCOVERY_RADIUS_M));
+  const body = 'data=' + encodeURIComponent(buildOverpassQuery(lat, lon, radiusM));
   let data;
   try {
     data = await Promise.any(OVERPASS_ENDPOINTS.map((ep) => fetchOverpass(ep, body)));
   } catch (e) {
     throw new Error('overpass-unavailable');
   }
-  const shops = processShops(data.elements, lat, lon);
-  writeShopCache(lat, lon, shops);
+  const shops = processShops(data.elements, lat, lon, radiusM);
+  writeShopCache(lat, lon, radiusM, shops);
   return shops;
 }

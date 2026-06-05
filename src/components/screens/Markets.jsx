@@ -12,18 +12,19 @@ function loadAlerts() {
 }
 
 export default function Markets() {
-  const { lat, lon, status, extEvents, osmMarkets } = useLocali();
+  const { lat, lon, status, extEvents, osmMarkets, radiusKm, setRadiusKm } = useLocali();
   const { toast } = useUI();
   const [alerts, setAlerts] = useState(loadAlerts);
 
-  // Marchés (récurrents) + événements commerçants + événements OpenAgenda, fusionnés
+  // Marchés (récurrents) + événements commerçants + OpenAgenda, dans le rayon choisi
   const items = useMemo(() => {
-    const markets = buildMarkets(lat, lon, osmMarkets).map((m) => ({
+    const markets = buildMarkets(lat, lon, osmMarkets, radiusKm).map((m) => ({
       id: m.id, kind: 'market', title: m.name,
       sub: `${m.dayName}${m.time ? ' · ' + m.time : ''}`, place: m.place || m.commune,
       distStr: m.distStr, date: m.date, today: m.today, typeLabel: 'Marché',
     }));
-    const events = [...buildEvents(lat, lon), ...extEvents].map((e) => ({
+    const ev = [...buildEvents(lat, lon, radiusKm), ...extEvents.filter((e) => e.dist == null || e.dist <= radiusKm * 1000)];
+    const events = ev.map((e) => ({
       id: e.id, kind: 'event', title: e.title,
       sub: e.source === 'openagenda' ? 'OpenAgenda' : e.type, place: e.place, distStr: e.distStr,
       date: e.dateObj, today: e.today, typeLabel: e.type,
@@ -34,7 +35,7 @@ export default function Markets() {
       if (da !== db) return da - db;
       return 0;
     });
-  }, [lat, lon, osmMarkets, extEvents]);
+  }, [lat, lon, osmMarkets, extEvents, radiusKm]);
 
   useEffect(() => {
     try { localStorage.setItem(AKEY, JSON.stringify(alerts)); } catch (e) {}
@@ -68,7 +69,15 @@ export default function Markets() {
     <div className="sc-markets">
       <div className="markhead">
         <h2>Marchés &amp; événements</h2>
-        <p>Près de vous · activez une alerte 🔔 sur ce qui vous intéresse</p>
+        <p>Dans un rayon de {radiusKm} km autour de vous · alerte 🔔 possible</p>
+      </div>
+
+      <div style={{ padding: '12px 16px 0' }}>
+        <div className="radius-chips">
+          {[5, 10, 20].map((km) => (
+            <div key={km} className={'rchip' + (radiusKm === km ? ' active' : '')} onClick={() => setRadiusKm(km)}>{km} km</div>
+          ))}
+        </div>
       </div>
 
       {todays.length > 0 && (

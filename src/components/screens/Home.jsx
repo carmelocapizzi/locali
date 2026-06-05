@@ -9,7 +9,7 @@ import { buildEvents } from '../../utils/events';
 import ShopCard from '../ShopCard';
 
 export default function Home() {
-  const { lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate } = useLocali();
+  const { lat, lon, city, shops, status, geo, extEvents, osmMarkets, radiusKm, setRadiusKm, retry, locate } = useLocali();
   const { openShop, setScreen } = useUI();
   const [cat, setCat] = useState('all');
   const [q, setQ] = useState('');
@@ -27,22 +27,23 @@ export default function Home() {
 
   // Marchés + événements près de vous (teaser → onglet Agenda)
   const markets = useMemo(() => {
-    const mk = buildMarkets(lat, lon, osmMarkets).map((m) => ({
+    const mk = buildMarkets(lat, lon, osmMarkets, radiusKm).map((m) => ({
       id: m.id, name: m.name, date: m.date, today: m.today,
       sub: `${m.dayName}${m.time ? ' · ' + m.time : ''}`, distStr: m.distStr,
     }));
-    const ev = [...buildEvents(lat, lon), ...extEvents].map((e) => ({
+    const evSrc = [...buildEvents(lat, lon, radiusKm), ...extEvents.filter((e) => e.dist == null || e.dist <= radiusKm * 1000)];
+    const ev = evSrc.map((e) => ({
       id: e.id, name: e.title, date: e.dateObj, today: e.today,
       sub: e.source === 'openagenda' ? 'OpenAgenda' : e.type, distStr: e.distStr,
     }));
     return [...mk, ...ev]
       .sort((a, b) => (a.date ? a.date.getTime() : Infinity) - (b.date ? b.date.getTime() : Infinity))
       .slice(0, 6);
-  }, [lat, lon, osmMarkets, extEvents]);
+  }, [lat, lon, osmMarkets, extEvents, radiusKm]);
 
   const countTxt =
     status === 'ready'
-      ? `${shops.length} commerces locaux dans un rayon de 8 km`
+      ? `${shops.length} commerces locaux dans un rayon de ${radiusKm} km`
       : status === 'error'
       ? 'Chargement impossible'
       : status === 'loading'
@@ -107,6 +108,13 @@ export default function Home() {
       )}
 
       <div className="sec-title">Près de vous</div>
+      <div style={{ padding: '0 22px 8px' }}>
+        <div className="radius-chips">
+          {[5, 10, 20].map((km) => (
+            <div key={km} className={'rchip' + (radiusKm === km ? ' active' : '')} onClick={() => setRadiusKm(km)}>{km} km</div>
+          ))}
+        </div>
+      </div>
 
       {(status === 'locating' || status === 'loading') && (
         <div className="hscroll">

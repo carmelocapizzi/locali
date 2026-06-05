@@ -25,6 +25,10 @@ function clearSavedLoc() {
   try { localStorage.removeItem(LOC_KEY); } catch (e) {}
 }
 
+// Rayon de recherche choisi par le client (5 / 10 / 20 km)
+const RKEY = 'locali.radius';
+function readRadius() { try { const r = +localStorage.getItem(RKEY); return [5, 10, 20].includes(r) ? r : 10; } catch (e) { return 10; } }
+
 export function LocaliProvider({ children }) {
   const [lat, setLat] = useState(null);
   const [lon, setLon] = useState(null);
@@ -38,18 +42,30 @@ export function LocaliProvider({ children }) {
   const [extEvents, setExtEvents] = useState([]);
   // Marchés OSM chargés autour de la position (universel)
   const [osmMarkets, setOsmMarkets] = useState([]);
+  // Rayon de recherche choisi par le client (km)
+  const [radiusKm, setRadiusKmState] = useState(readRadius);
 
   const osmShopsRef = useRef([]);
   const latRef = useRef(null);
   const lonRef = useRef(null);
+  const radiusRef = useRef(radiusKm);
+  radiusRef.current = radiusKm;
 
   const fetchShops = useCallback((la, lo) => {
     setStatus('loading');
     latRef.current = la; lonRef.current = lo;
-    return loadShops(la, lo)
+    return loadShops(la, lo, radiusRef.current * 1000)
       .then((s) => { osmShopsRef.current = s; setShops(mergeCustom(s, la, lo)); setStatus('ready'); })
       .catch(() => { osmShopsRef.current = []; const merged = mergeCustom([], la, lo); setShops(merged); setStatus(merged.length ? 'ready' : 'error'); });
   }, []);
+
+  // Changer le rayon (5/10/20) → re-cherche les commerces, mémorisé
+  const setRadiusKm = useCallback((km) => {
+    setRadiusKmState(km);
+    radiusRef.current = km;
+    try { localStorage.setItem(RKEY, String(km)); } catch (e) {}
+    if (latRef.current != null) fetchShops(latRef.current, lonRef.current);
+  }, [fetchShops]);
 
   // Re-fusionne les commerces personnalisés (après ajout manuel) sans refaire la requête OSM
   const refreshCustom = useCallback(() => {
@@ -153,7 +169,7 @@ export function LocaliProvider({ children }) {
   }, [fetchShops]);
 
   return (
-    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate, refreshCustom }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, radiusKm, setRadiusKm, retry, locate, refreshCustom }}>{children}</Ctx.Provider>
   );
 }
 

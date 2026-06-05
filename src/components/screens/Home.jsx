@@ -9,13 +9,10 @@ import { buildEvents } from '../../utils/events';
 import ShopCard from '../ShopCard';
 
 export default function Home() {
-  const { lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate, setManualLocation } = useLocali();
+  const { lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate } = useLocali();
   const { openShop, setScreen } = useUI();
   const [cat, setCat] = useState('all');
   const [q, setQ] = useState('');
-  const [editLoc, setEditLoc] = useState(false);
-  const [locQuery, setLocQuery] = useState('');
-  const submitLoc = () => { if (locQuery.trim()) setManualLocation(locQuery).then(() => setEditLoc(false)); };
 
   const filtered = useMemo(() => {
     let base = cat === 'all' ? shops : shops.filter((s) => s.type === cat);
@@ -57,27 +54,11 @@ export default function Home() {
       <div className="hero">
         <div className="hero-loc">
           <i className="ti ti-map-pin" style={{ fontSize: 13 }} />
-          {!editLoc ? (
-            <>
-              <span>{city}</span>
-              <button className="relocate-btn" onClick={() => { setLocQuery(''); setEditLoc(true); }} title="Corriger ma position">
-                <i className="ti ti-edit" /> changer
-              </button>
-            </>
-          ) : (
-            <span className="loc-edit">
-              <input
-                className="loc-input"
-                placeholder="Votre commune (ex. Silly)"
-                value={locQuery}
-                autoFocus
-                onChange={(e) => setLocQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submitLoc(); }}
-              />
-              <button className="loc-go" onClick={submitLoc} title="Valider"><i className="ti ti-check" /></button>
-              <button className="loc-go" onClick={() => { locate(); setEditLoc(false); }} title="Utiliser mon GPS"><i className="ti ti-current-location" /></button>
-              <button className="loc-go" onClick={() => setEditLoc(false)} title="Annuler"><i className="ti ti-x" /></button>
-            </span>
+          <span>{city}</span>
+          {geo === 'fallback' && (
+            <button className="relocate-btn" onClick={locate} title="Utiliser ma position GPS">
+              <i className="ti ti-current-location" /> Activer ma position
+            </button>
           )}
         </div>
         <div className="hero-title">Bonjour,<br /><em>que cherchez-vous ?</em></div>

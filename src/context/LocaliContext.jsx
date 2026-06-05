@@ -16,17 +16,11 @@ function mergeCustom(osm, la, lo) {
   });
   return [...custom, ...osm].sort((a, b) => a.dist - b.dist);
 }
-// Repli par défaut : Bassilly (Silly, Hainaut, Belgique)
-const FALLBACK = { lat: 50.645, lon: 3.91, city: 'Bassilly, Silly (Belgique)' };
+// Repli si le GPS est indisponible/refusé (l'utilisateur peut « Activer ma position »)
+const FALLBACK = { lat: 50.645, lon: 3.91, city: 'Position par défaut — activez la vôtre' };
 
-// Position choisie manuellement par l'utilisateur (corrige une géoloc IP imprécise)
+// Ancienne clé de position « mémorisée » — on la purge : le GPS est désormais la base.
 const LOC_KEY = 'locali.loc';
-function readSavedLoc() {
-  try { const r = localStorage.getItem(LOC_KEY); const o = r ? JSON.parse(r) : null; return o && o.lat != null ? o : null; } catch (e) { return null; }
-}
-function saveLoc(lat, lon, label) {
-  try { localStorage.setItem(LOC_KEY, JSON.stringify({ lat, lon, label })); } catch (e) {}
-}
 function clearSavedLoc() {
   try { localStorage.removeItem(LOC_KEY); } catch (e) {}
 }
@@ -99,17 +93,11 @@ export function LocaliProvider({ children }) {
       return () => { cancelled = true; };
     }
 
-    // 2) Position choisie/corrigée par l'utilisateur et mémorisée
-    const saved = readSavedLoc();
-    if (saved) {
-      setGeo('manual');
-      setCity(saved.label || 'Position enregistrée');
-      go(saved.lat, saved.lon);
-      return () => { cancelled = true; };
-    }
+    // Purge d'une éventuelle ancienne position mémorisée (le GPS est la base)
+    clearSavedLoc();
 
-    // 3) Géolocalisation réelle du navigateur
-    if (!navigator.geolocation) { fallback(); return; }
+    // 2) Géolocalisation réelle du navigateur — BASE de la recherche des commerces
+    if (!navigator.geolocation) { fallback(); return () => { cancelled = true; }; }
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -120,8 +108,8 @@ export function LocaliProvider({ children }) {
         reverseGeocode(la, lo).then((c) => { if (!cancelled) setCity(c); }).catch(() => {});
         go(la, lo);
       },
-      () => fallback(), // 3) Repli : Bassilly
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      () => fallback(), // permission refusée/indisponible → repli (bouton « Activer ma position » dispo)
+      { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 }
     );
 
     return () => { cancelled = true; };
@@ -147,7 +135,7 @@ export function LocaliProvider({ children }) {
     if (lat != null) fetchShops(lat, lon);
   }, [lat, lon, fetchShops]);
 
-  // Relancer la géolocalisation à la demande (bouton « Me localiser »)
+  // Activer / réessayer la géolocalisation à la demande (bouton « Activer ma position »)
   const locate = useCallback(() => {
     if (!navigator.geolocation) return;
     setGeo('locating');
@@ -156,32 +144,16 @@ export function LocaliProvider({ children }) {
       (pos) => {
         const la = pos.coords.latitude, lo = pos.coords.longitude;
         setGeo('real'); setLat(la); setLon(lo);
-        clearSavedLoc(); // le GPS « live » remplace une éventuelle position mémorisée
         reverseGeocode(la, lo).then(setCity).catch(() => {});
         fetchShops(la, lo);
       },
       () => { setGeo('fallback'); setCity(FALLBACK.city); setLat(FALLBACK.lat); setLon(FALLBACK.lon); fetchShops(FALLBACK.lat, FALLBACK.lon); },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
     );
   }, [fetchShops]);
 
-  // Définir/corriger la position en tapant une commune (géocodée et mémorisée)
-  const setManualLocation = useCallback((query) => {
-    const q = (query || '').trim();
-    if (!q) return Promise.resolve(false);
-    setGeo('locating'); setCity('Recherche…');
-    return geocodePlace(q)
-      .then((r) => {
-        setGeo('manual'); setLat(r.lat); setLon(r.lon); setCity(r.label);
-        saveLoc(r.lat, r.lon, r.label);
-        fetchShops(r.lat, r.lon);
-        return true;
-      })
-      .catch(() => { setGeo('fallback'); setCity('Lieu introuvable — réessayez'); return false; });
-  }, [fetchShops]);
-
   return (
-    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate, setManualLocation, refreshCustom }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ lat, lon, city, shops, status, geo, extEvents, osmMarkets, retry, locate, refreshCustom }}>{children}</Ctx.Provider>
   );
 }
 

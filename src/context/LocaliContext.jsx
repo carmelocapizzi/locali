@@ -131,7 +131,7 @@ export function LocaliProvider({ children }) {
         if (!near) go(la, lo);
       },
       (err) => { if (cancelled) return; setGeoMsg(geoErrMsg(err)); if (!saved) fallback(); },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
 
     return () => { cancelled = true; };

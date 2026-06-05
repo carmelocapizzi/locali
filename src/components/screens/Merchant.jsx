@@ -9,6 +9,10 @@ import { loadEvents, saveEvents } from '../../utils/events';
 import { loadOrders, updateOrder, agoStr, durMin, itemsLabel, statusPill, haversine } from '../../utils/orders';
 import { setParticipation } from '../../utils/participation';
 import { addCustomShop } from '../../utils/customShops';
+import { setShopConfig } from '../../utils/shopConfig';
+import { COURIER_FEE, COMMISSION_RATE } from '../../utils/delivery';
+import { loadSponsors, upsertSponsor, removeSponsor } from '../../utils/sponsors';
+import HowItWorks from '../HowItWorks';
 import { DAY_KEYS, DAY_LABELS } from '../../utils/hours';
 
 const MKEY = 'locali.merchant';
@@ -32,10 +36,12 @@ function loadMerchant() {
         shopId: m.shopId || null, shopName: m.shopName || null, shopType: m.shopType || null,
         shopLat: m.shopLat != null ? m.shopLat : null, shopLon: m.shopLon != null ? m.shopLon : null,
         hours: m.hours || null,
+        deliveryMode: m.deliveryMode || 'delivery', freeThreshold: m.freeThreshold != null ? m.freeThreshold : 20,
+        courierPerks: Array.isArray(m.courierPerks) ? m.courierPerks : [],
       };
     }
   } catch (e) {}
-  return { subscribed: false, trialUntil: null, products: [], library: [], shopId: null, shopName: null, shopType: null, shopLat: null, shopLon: null, hours: null };
+  return { subscribed: false, trialUntil: null, products: [], library: [], shopId: null, shopName: null, shopType: null, shopLat: null, shopLon: null, hours: null, deliveryMode: 'delivery', freeThreshold: 20, courierPerks: [] };
 }
 
 // Mémorise un produit dans la bibliothèque (récurrents), sans doublon de nom
@@ -76,6 +82,35 @@ export default function Merchant() {
     const status = merchant.subscribed ? 'subscribed' : (merchant.trialUntil && Date.now() < merchant.trialUntil ? 'trial' : 'none');
     setParticipation(merchant.shopId, status);
   }, [merchant.shopId, merchant.subscribed, merchant.trialUntil]);
+
+  // Publie les réglages livraison + avantages livreurs (lus par clients et livreurs)
+  useEffect(() => {
+    if (!merchant.shopId) return;
+    setShopConfig(merchant.shopId, {
+      shopName: merchant.shopName, freeThreshold: merchant.freeThreshold,
+      deliveryMode: merchant.deliveryMode, courierPerks: merchant.courierPerks,
+    });
+  }, [merchant.shopId, merchant.shopName, merchant.freeThreshold, merchant.deliveryMode, merchant.courierPerks]);
+
+  const [perk, setPerk] = useState({ label: '', detail: '' });
+  const addPerk = () => {
+    if (!perk.label.trim()) { toast('Décrivez l\'avantage'); return; }
+    setMerchant((m) => ({ ...m, courierPerks: [...(m.courierPerks || []), { id: 'pk-' + Date.now(), label: perk.label.trim(), detail: perk.detail.trim() }] }));
+    setPerk({ label: '', detail: '' });
+    toast('Avantage livreur ajouté ✓');
+  };
+  const removePerk = (id) => setMerchant((m) => ({ ...m, courierPerks: (m.courierPerks || []).filter((p) => p.id !== id) }));
+
+  // Sponsoring : le commerce peut financer les livraisons offertes du quartier (visibilité en échange)
+  const [showHow, setShowHow] = useState(false);
+  const sponsorId = merchant.shopId ? 'sp-' + merchant.shopId : null;
+  const [isSponsor, setIsSponsor] = useState(false);
+  useEffect(() => { setIsSponsor(sponsorId ? loadSponsors().some((x) => x.id === sponsorId) : false); }, [sponsorId]);
+  const toggleSponsor = () => {
+    if (!merchant.shopId) return;
+    if (isSponsor) { removeSponsor(sponsorId); setIsSponsor(false); toast('Sponsoring désactivé'); }
+    else { upsertSponsor({ id: sponsorId, name: merchant.shopName || 'Commerce local', type: merchant.shopType, active: true }); setIsSponsor(true); toast('Merci ! Vous sponsorisez les livraisons du quartier 🤝'); }
+  };
 
   const claimShop = (id) => {
     const sh = shops.find((x) => x.id === id);
@@ -441,6 +476,65 @@ export default function Merchant() {
             )}
           </div>
 
+          {merchant.shopId && (
+            <div className="msec">
+              <h3>Livraison &amp; livreurs</h3>
+              <p className="msec-sub">
+                Les prix dans l'app sont identiques à votre magasin. La livraison est financée par votre commission
+                ({Math.round(COMMISSION_RATE * 100)} % sur les ventes que Locali vous apporte) — jamais par une hausse des prix.
+              </p>
+
+              <div className="seclabel">Mode de remise</div>
+              <div className="deliv-mode">
+                <button className={'dm-opt' + (merchant.deliveryMode !== 'pickup_only' ? ' active' : '')} onClick={() => setMerchant((m) => ({ ...m, deliveryMode: 'delivery' }))}>
+                  <i className="ti ti-bike" /> Livraison + retrait
+                </button>
+                <button className={'dm-opt' + (merchant.deliveryMode === 'pickup_only' ? ' active' : '')} onClick={() => setMerchant((m) => ({ ...m, deliveryMode: 'pickup_only' }))}>
+                  <i className="ti ti-building-store" /> Retrait seulement
+                </button>
+              </div>
+
+              {merchant.deliveryMode !== 'pickup_only' && (
+                <div className="thresh-row">
+                  <span>Livraison offerte dès</span>
+                  <input type="number" min="0" step="1" value={merchant.freeThreshold}
+                    onChange={(e) => setMerchant((m) => ({ ...m, freeThreshold: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
+                  <span>€ de panier</span>
+                </div>
+              )}
+              <div className="deliv-info">
+                En dessous du seuil, le client retire en magasin (gratuit). Le livreur reçoit <strong>{COURIER_FEE.toFixed(0)} € par livraison</strong> (rémunération réelle), plus vos avantages ci-dessous.
+              </div>
+
+              <div className="seclabel" style={{ marginTop: 12 }}>Avantages que vous offrez aux livreurs</div>
+              <p className="msec-sub" style={{ marginTop: 0 }}>En plus de leur rémunération. Coût marginal faible pour vous, forte valeur pour le livreur — qui devient votre ambassadeur. 🌿</p>
+              <div className="perk-edit">
+                {(merchant.courierPerks || []).map((p) => (
+                  <div className="perk-chip" key={p.id}>
+                    <span>{p.label}{p.detail ? ' — ' + p.detail : ''}</span>
+                    <button onClick={() => removePerk(p.id)} title="Retirer"><i className="ti ti-x" /></button>
+                  </div>
+                ))}
+                {(merchant.courierPerks || []).length === 0 && <div className="empty-mini" style={{ margin: 0 }}>Aucun avantage proposé pour l'instant.</div>}
+              </div>
+              <div className="perk-add">
+                <input type="text" placeholder="Avantage (ex. −10 % sur vos achats)" value={perk.label} onChange={(e) => setPerk({ ...perk, label: e.target.value })} />
+                <input type="text" placeholder="Détail (ex. dès 5 livraisons)" value={perk.detail} onChange={(e) => setPerk({ ...perk, detail: e.target.value })} />
+                <button className="np-add np-add-full" onClick={addPerk}>+ Proposer cet avantage</button>
+              </div>
+
+              <div className="seclabel" style={{ marginTop: 12 }}>Sponsoriser les livraisons du quartier</div>
+              <div className="sponsor-box">
+                <p>Financez les livraisons offertes autour de vous. En échange : votre nom sur « Livraison offerte avec le soutien de… », un badge <strong>Sponsor local 🤝</strong> et la visibilité d'un commerce qui soutient la proximité.</p>
+                <button className={'sponsor-btn' + (isSponsor ? ' on' : '')} onClick={toggleSponsor}>
+                  {isSponsor ? '✓ Vous êtes sponsor local' : '🤝 Devenir sponsor local'}
+                </button>
+              </div>
+
+              <button className="howlink" onClick={() => setShowHow(true)}>💡 D'où vient l'argent ? Voir le circuit complet</button>
+            </div>
+          )}
+
           <div className="msec">
             <h3>Vos produits à la commande</h3>
             <p className="msec-sub">
@@ -592,6 +686,7 @@ export default function Merchant() {
         </>
       )}
       <div style={{ height: 16 }} />
+      {showHow && <HowItWorks role="commercant" onClose={() => setShowHow(false)} />}
     </div>
   );
 }

@@ -6,6 +6,9 @@ import { getMeta } from '../../utils/overpass';
 import { loadOrders, updateOrder, itemsLabel, agoStr, isToday, haversine, formatDist } from '../../utils/orders';
 import { courierProgress } from '../../utils/courier';
 import { participationOf } from '../../utils/participation';
+import { courierCashFor, eur, COURIER_FEE, COURIER_BATCH_BONUS } from '../../utils/delivery';
+import { allCourierPerks } from '../../utils/shopConfig';
+import HowItWorks from '../HowItWorks';
 
 export default function Delivery() {
   const { lat, lon } = useLocali();
@@ -13,6 +16,8 @@ export default function Delivery() {
   const { user } = useAuth();
   const [radius, setRadius] = useState(10);
   const [orders, setOrders] = useState(loadOrders);
+  const [sel, setSel] = useState(() => new Set()); // tournée groupée : ids sélectionnés
+  const [showHow, setShowHow] = useState(false);
 
   const courier = (user && user.name) || 'Livreur';
   const refresh = () => setOrders(loadOrders());
@@ -21,8 +26,9 @@ export default function Delivery() {
   const inRadius = (o) => { const d = dist(o); return d == null || d <= radius * 1000; };
 
   const partOf = (o) => participationOf(o.shopId);
+  // Seules les commandes EN LIVRAISON arrivent au livreur (les retraits en magasin n'en ont pas besoin)
   const available = useMemo(
-    () => orders.filter((o) => o.status === 'accepted' && inRadius(o))
+    () => orders.filter((o) => o.status === 'accepted' && o.fulfillment !== 'pickup' && inRadius(o))
       .sort((a, b) => (partOf(b) === 'trial' ? 1 : 0) - (partOf(a) === 'trial' ? 1 : 0)),
     [orders, radius, lat, lon]
   );
@@ -31,8 +37,11 @@ export default function Delivery() {
   const deliveredToday = useMemo(() => orders.filter((o) => o.status === 'delivered' && o.courier === courier && isToday(o.deliveredAt)).length, [orders, courier]);
 
   // Programme livreur : niveaux basés sur les VRAIES livraisons effectuées
-  const totalDelivered = useMemo(() => orders.filter((o) => o.status === 'delivered' && o.courier === courier).length, [orders, courier]);
+  const deliveredAll = useMemo(() => orders.filter((o) => o.status === 'delivered' && o.courier === courier), [orders, courier]);
+  const totalDelivered = deliveredAll.length;
+  const earned = useMemo(() => courierCashFor(deliveredAll), [deliveredAll]);
   const prog = courierProgress(totalDelivered);
+  const perks = useMemo(() => allCourierPerks(), [orders]);
   const lastAvail = useRef(0);
 
   useEffect(() => {
@@ -55,8 +64,17 @@ export default function Delivery() {
     lastAvail.current = available.length;
   }, [available.length]);
 
-  const take = (o) => { updateOrder(o.id, { status: 'delivering', courier, deliveringAt: Date.now() }); refresh(); toast('Course acceptée 🚴 — ' + o.shopName); };
+  const take = (o) => { updateOrder(o.id, { status: 'delivering', courier, deliveringAt: Date.now(), batchSize: 1 }); refresh(); toast('Course acceptée 🚴 — ' + o.shopName); };
   const confirm = (o) => { updateOrder(o.id, { status: 'delivered', deliveredAt: Date.now() }); refresh(); toast('Réception confirmée ✓ — livrée à ' + (o.client || 'client')); };
+
+  const toggleSel = (id) => setSel((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const batchEarn = sel.size * COURIER_FEE + Math.max(0, sel.size - 1) * COURIER_BATCH_BONUS;
+  const takeBatch = () => {
+    const ids = [...sel]; const n = ids.length;
+    ids.forEach((id) => updateOrder(id, { status: 'delivering', courier, deliveringAt: Date.now(), batchSize: n }));
+    setSel(new Set()); refresh();
+    toast(`Tournée de ${n} course${n > 1 ? 's' : ''} acceptée 🚴 · ~${eur(batchEarn)}`);
+  };
 
   const queue = [...mine, ...available]; // mes courses en cours d'abord
 
@@ -90,6 +108,28 @@ export default function Delivery() {
         <div className="lvlperk"><i className="ti ti-gift" /> {prog.cur.perk}</div>
       </div>
 
+      {/* Rémunération réelle (cash) — en plus des avantages partenaires */}
+      <div className="earn-card">
+        <div>
+          <div className="earn-val">{eur(earned)}</div>
+          <div className="earn-lbl">Gagnés (réel) · {COURIER_FEE.toFixed(0)}€ par livraison{deliveredToday ? ` · ${deliveredToday} aujourd'hui` : ''}</div>
+        </div>
+        <div className="earn-note">+ avantages des<br />commerçants partenaires</div>
+      </div>
+      <button className="howlink dark" onClick={() => setShowHow(true)}>💡 Qui paie mes courses ? Comment ça marche ?</button>
+
+      {perks.length > 0 && (
+        <div className="perks-card">
+          <div className="perks-title"><i className="ti ti-gift" /> Avantages offerts par les commerçants</div>
+          {perks.map((p, i) => (
+            <div className="perk-row" key={i}>
+              <span className="perk-shop">{p.shopName || 'Commerce'}</span>
+              <span className="perk-label">{p.label}{p.detail ? ' — ' + p.detail : ''}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {trialCount > 0 && (
         <div className="opp-banner">
           <div className="opp-title">✨ Nouvelle opportunité</div>
@@ -112,7 +152,18 @@ export default function Delivery() {
 
       <div className="seclabel" style={{ padding: '10px 16px 10px' }}>
         {queue.length ? queue.length : 'Aucune'} course{queue.length > 1 ? 's' : ''} dans {radius} km
+        {available.length > 1 && <span className="batch-hint"> · groupez-les en tournée pour gagner plus</span>}
       </div>
+
+      {sel.size > 0 && (
+        <div className="batch-bar">
+          <div className="batch-info">
+            <strong>Tournée groupée · {sel.size} course{sel.size > 1 ? 's' : ''}</strong>
+            <span>~{eur(batchEarn)} estimés (base {COURIER_FEE.toFixed(0)}€ + {COURIER_BATCH_BONUS.toFixed(0)}€/course groupée)</span>
+          </div>
+          <button className="batch-go" onClick={takeBatch}>Prendre la tournée</button>
+        </div>
+      )}
 
       <div>
         {queue.length === 0 && (
@@ -140,7 +191,12 @@ export default function Delivery() {
                   {taken ? (
                     <button className="btnacc" onClick={() => confirm(o)}><i className="ti ti-package" /> Confirmer la réception</button>
                   ) : (
-                    <button className="btnacc" onClick={() => take(o)}><i className="ti ti-check" /> Prendre la course</button>
+                    <>
+                      <button className={'btngroup' + (sel.has(o.id) ? ' on' : '')} onClick={() => toggleSel(o.id)} title="Ajouter à une tournée groupée">
+                        <i className={'ti ' + (sel.has(o.id) ? 'ti-check' : 'ti-plus')} /> Tournée
+                      </button>
+                      <button className="btnacc" onClick={() => take(o)}><i className="ti ti-check" /> Prendre</button>
+                    </>
                   )}
                 </div>
               </div>
@@ -149,6 +205,7 @@ export default function Delivery() {
         })}
         <div style={{ height: 16 }} />
       </div>
+      {showHow && <HowItWorks role="livreur" onClose={() => setShowHow(false)} />}
     </div>
   );
 }

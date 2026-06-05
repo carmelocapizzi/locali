@@ -7,6 +7,7 @@ import { findProducts } from '../../utils/products';
 import { buildMarkets } from '../../utils/markets';
 import { buildEvents } from '../../utils/events';
 import ShopCard from '../ShopCard';
+import HowItWorks from '../HowItWorks';
 
 export default function Home() {
   const { lat, lon, city, shops, status, geo, geoMsg, extEvents, osmMarkets, radiusKm, setRadiusKm, retry, locate, setPlace } = useLocali();
@@ -14,7 +15,7 @@ export default function Home() {
   const [cat, setCat] = useState('all');
   const [q, setQ] = useState('');
   const [locInput, setLocInput] = useState('');
-  const [showLoc, setShowLoc] = useState(false);
+  const [showHow, setShowHow] = useState(false);
 
   const filtered = useMemo(() => {
     let base = cat === 'all' ? shops : shops.filter((s) => s.type === cat);
@@ -58,33 +59,31 @@ export default function Home() {
         <div className="hero-loc">
           <i className="ti ti-map-pin" style={{ fontSize: 13 }} />
           <span>{city}</span>
-          <button className="relocate-btn" onClick={() => setShowLoc((v) => !v)} title="Changer de position">
-            <i className="ti ti-pencil" /> {geo === 'real' ? 'modifier' : 'ma position'}
+          <button className="relocate-btn" onClick={locate} title="Utiliser le GPS de l'appareil" disabled={geo === 'locating'}>
+            <i className="ti ti-current-location" /> {geo === 'locating' ? 'Localisation…' : 'Charger ma position'}
           </button>
         </div>
 
-        {(showLoc || geo === 'fallback' || geoMsg) && (
+        {(geo === 'fallback' || geoMsg) && (
           <div className="loc-panel">
-            <button className="loc-gps" onClick={locate}>
-              <i className="ti ti-current-location" /> Utiliser mon GPS
-            </button>
+            {geoMsg && <div className="loc-msg">{geoMsg}</div>}
             <form
               className="loc-form"
-              onSubmit={(e) => { e.preventDefault(); if (locInput.trim()) setPlace(locInput).then(() => setShowLoc(false)); }}
+              onSubmit={(e) => { e.preventDefault(); if (locInput.trim()) setPlace(locInput); }}
             >
               <input
                 type="text"
-                placeholder="Commune ou code postal (ex. Rebecq, 1430)"
+                placeholder="Sinon, entrez votre commune ou code postal (ex. Namur, 5000)"
                 value={locInput}
                 onChange={(e) => setLocInput(e.target.value)}
               />
               <button type="submit" title="Valider"><i className="ti ti-arrow-right" /></button>
             </form>
-            {geoMsg && <div className="loc-msg">{geoMsg}</div>}
           </div>
         )}
         <div className="hero-title">Bonjour,<br /><em>que cherchez-vous ?</em></div>
         <div className="hero-count">{countTxt}</div>
+        <button className="howlink" onClick={() => setShowHow(true)}>💡 Livraison offerte : comment ça marche ?</button>
         <div className="searchbar">
           <i className="ti ti-search" style={{ color: '#ccc', fontSize: 18 }} />
           <input
@@ -194,6 +193,7 @@ export default function Home() {
         )}
       </div>
       <div style={{ height: 20 }} />
+      {showHow && <HowItWorks role="client" onClose={() => setShowHow(false)} />}
     </div>
   );
 }

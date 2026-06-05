@@ -7,6 +7,9 @@ import { isOpenNow, formatHours, isOpenNowMerchant, formatMerchantHours } from '
 import { catalogForType, merchantProductsForType, priceLabel, getMerchantProfile } from '../utils/products';
 import { addOrder } from '../utils/orders';
 import { participationOf } from '../utils/participation';
+import { fulfillmentFor } from '../utils/delivery';
+import { pickSponsor } from '../utils/sponsors';
+import HowItWorks from './HowItWorks';
 
 const eur = (n) => Number(n).toFixed(2).replace('.', ',') + ' €';
 
@@ -27,10 +30,16 @@ export default function ShopModal() {
   }, [s]);
   const mineCount = useMemo(() => (s && !s.products ? merchantProductsForType(s.type).length : 0), [s]);
   const [qty, setQty] = useState({});
+  const [prefDelivery, setPrefDelivery] = useState(true); // préférence client quand le choix existe
+  const [showHow, setShowHow] = useState(false);
+  const sponsor = useMemo(() => pickSponsor(), [s]);
 
-  useEffect(() => { setQty({}); }, [s]);
+  useEffect(() => { setQty({}); setPrefDelivery(true); }, [s]);
 
   const total = prods.reduce((acc, p, i) => acc + (qty[i] || 0) * p.p, 0);
+  const ful = useMemo(() => fulfillmentFor(total, s ? s.id : null), [total, s]);
+  // Mode effectif : livraison si autorisée (panier ≥ seuil) et préférée, sinon retrait
+  const fulfill = ful.pickupOnly ? 'pickup' : (ful.deliveryAllowed && prefDelivery ? 'delivery' : 'pickup');
   const meta = s ? getMeta(s.type) : null;
   // Si ce commerce est celui du commerçant inscrit, on affiche SES horaires (saisis), sinon OSM
   const profile = getMerchantProfile();
@@ -56,9 +65,12 @@ export default function ShopModal() {
       shopId: s.id, shopName: s.name, shopType: s.type,
       lat: s.lat != null ? s.lat : null, lon: s.lon != null ? s.lon : null,
       items, total, client: (user && user.name) || 'Client',
+      fulfillment: fulfill, deliveryFree: fulfill === 'delivery',
     });
     closeShop();
-    toast('Commande envoyée ✓ — en attente de validation du commerçant');
+    toast(fulfill === 'delivery'
+      ? 'Commande envoyée ✓ — livraison offerte, en attente de validation'
+      : 'Commande envoyée ✓ — à retirer en magasin après validation');
   };
 
   return (
@@ -134,7 +146,7 @@ export default function ShopModal() {
               {canOrder ? (
                 <>
                   <div className="prodlist">
-                    <h4>Commander — livraison gratuite Locali 🌿</h4>
+                    <h4>Commander 🌿</h4>
                     {prods.map((p, i) => {
                       const grp = p.catLabel || 'Produits du commerçant';
                       const showHeader = i === 0 || grp !== (prods[i - 1].catLabel || 'Produits du commerçant');
@@ -157,8 +169,35 @@ export default function ShopModal() {
                   </div>
 
                   {total > 0 && (
+                    <div className="fulfill-box">
+                      {ful.pickupOnly ? (
+                        <div className="fulfill-line"><i className="ti ti-building-store" /> Retrait en magasin (ce commerce ne livre pas)</div>
+                      ) : ful.deliveryAllowed ? (
+                        <div className="fulfill-opts">
+                          <button className={'fulfill-opt' + (fulfill === 'delivery' ? ' active' : '')} onClick={() => setPrefDelivery(true)}>
+                            <i className="ti ti-bike" /> Livraison offerte 🎉
+                          </button>
+                          <button className={'fulfill-opt' + (fulfill === 'pickup' ? ' active' : '')} onClick={() => setPrefDelivery(false)}>
+                            <i className="ti ti-building-store" /> Retrait en magasin
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="fulfill-line">
+                          <i className="ti ti-building-store" /> Retrait en magasin gratuit · <strong>+{eur(ful.missing)}</strong> pour la livraison offerte
+                        </div>
+                      )}
+                      {fulfill === 'delivery' && sponsor && (
+                        <div className="fulfill-sponsor">🤝 Livraison sponsorisée par <strong>{sponsor.name}</strong> — pensez à passer leur faire un coucou pour les remercier !</div>
+                      )}
+                      <button className="fulfill-note" onClick={() => setShowHow(true)}>
+                        Prix identiques au magasin — la livraison est financée par le commerce, jamais par vous. <u>D'où vient l'argent ?</u> 🌿
+                      </button>
+                    </div>
+                  )}
+
+                  {total > 0 && (
                     <div className="cart-bar" onClick={placeOrder}>
-                      <span className="cart-label">Passer la commande</span>
+                      <span className="cart-label">{fulfill === 'delivery' ? 'Commander · livraison offerte' : 'Commander · retrait magasin'}</span>
                       <span className="cart-total">{eur(total)}</span>
                     </div>
                   )}
@@ -177,6 +216,7 @@ export default function ShopModal() {
           </>
         )}
       </div>
+      {showHow && <HowItWorks role="client" onClose={() => setShowHow(false)} />}
     </div>
   );
 }

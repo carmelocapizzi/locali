@@ -460,6 +460,83 @@ body{padding:16px}
 .ad-btn.on{background:#fef3e0;border-color:#f3d9b0;color:var(--amber)}
 .ad-btn:active{transform:scale(0.97)}
 
+/* Commande : choix livraison / retrait + transparence */
+.fulfill-box{margin-top:12px}
+.fulfill-opts{display:flex;gap:8px}
+.fulfill-opt{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#fff;border:1.5px solid var(--g2);border-radius:14px;padding:11px 8px;font-size:12.5px;font-weight:600;color:#777;cursor:pointer;font-family:'DM Sans',sans-serif}
+.fulfill-opt.active{background:var(--g1);border-color:var(--g5);color:var(--g5)}
+.fulfill-opt:active{transform:scale(0.97)}
+.fulfill-line{display:flex;align-items:center;gap:7px;font-size:13px;color:#444;background:var(--g1);border-radius:12px;padding:11px 13px}
+.fulfill-note{font-size:11px;color:#999;line-height:1.4;margin-top:8px;text-align:center}
+
+/* Livreur : gains réels + avantages + tournée groupée */
+.earn-card{margin:0 16px 12px;background:linear-gradient(135deg,#1f6b2e,#2d7a0a);color:#fff;border-radius:16px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.earn-val{font-family:'Fraunces',serif;font-size:26px;font-weight:600;line-height:1}
+.earn-lbl{font-size:11px;color:rgba(255,255,255,0.85);margin-top:3px}
+.earn-note{font-size:10.5px;color:rgba(255,255,255,0.8);text-align:right;line-height:1.3}
+.perks-card{margin:0 16px 12px;background:#fff;border:1px solid var(--g2);border-radius:14px;padding:12px 14px}
+.perks-title{font-size:12.5px;font-weight:700;color:var(--bark);display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.perk-row{display:flex;gap:9px;font-size:12px;padding:5px 0;border-top:1px solid var(--g1)}
+.perk-row:first-of-type{border-top:none}
+.perk-shop{flex-shrink:0;font-weight:700;color:var(--g5);min-width:90px}
+.perk-label{color:#555}
+.batch-hint{color:var(--g5);font-weight:600}
+.batch-bar{margin:0 16px 10px;background:var(--bark);color:#fff;border-radius:14px;padding:11px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,0.15)}
+.batch-info{display:flex;flex-direction:column;gap:2px;font-size:11px;color:rgba(255,255,255,0.8)}
+.batch-info strong{font-size:13px;color:#fff}
+.batch-go{flex-shrink:0;background:#b8e690;color:#1a1a0e;border:none;border-radius:20px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+.batch-go:active{transform:scale(0.96)}
+.btngroup{flex-shrink:0;background:#fff;border:1.5px solid var(--g2);color:#777;border-radius:10px;padding:8px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;display:inline-flex;align-items:center;gap:5px}
+.btngroup.on{background:var(--g1);border-color:var(--g5);color:var(--g5)}
+.btngroup:active{transform:scale(0.96)}
+
+/* Commerçant : réglages livraison + avantages livreurs */
+.deliv-mode{display:flex;gap:8px;margin-bottom:10px}
+.dm-opt{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#fff;border:1.5px solid var(--g2);border-radius:12px;padding:10px 8px;font-size:12.5px;font-weight:600;color:#777;cursor:pointer;font-family:'DM Sans',sans-serif}
+.dm-opt.active{background:var(--g1);border-color:var(--g5);color:var(--g5)}
+.thresh-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#444;margin-bottom:8px}
+.thresh-row input{width:70px;border:1.5px solid var(--g2);border-radius:10px;padding:8px 10px;font-size:14px;font-family:'DM Sans',sans-serif;outline:none;text-align:center}
+.deliv-info{font-size:11.5px;color:#888;line-height:1.5;background:var(--g1);border-radius:10px;padding:9px 12px}
+.perk-edit{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.perk-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#eef7e6;border:1px solid #cfe6bb;border-radius:10px;padding:8px 12px;font-size:12.5px;color:#2d5a0a}
+.perk-chip button{background:none;border:none;color:#7a9a5a;cursor:pointer;font-size:16px;flex-shrink:0}
+.perk-add{display:flex;flex-direction:column;gap:8px}
+.perk-add input{border:1.5px solid var(--g2);border-radius:10px;padding:9px 11px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;color:#1a1a0e}
+.perk-add input:focus{border-color:var(--g4)}
+
+/* Lien « comment ça marche » + transparence */
+.howlink{display:inline-block;background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:600;padding:0;margin-top:8px;color:var(--g5);text-align:left;text-decoration:underline;text-underline-offset:2px}
+.hero .howlink{color:rgba(255,255,255,0.82);margin-bottom:4px}
+.howlink.dark{display:block;text-align:center;margin:0 16px 12px;color:var(--g5)}
+.howlink:active{opacity:0.7}
+.fulfill-sponsor{font-size:11.5px;color:#2d5a0a;background:#eef7e6;border:1px solid #cfe6bb;border-radius:10px;padding:8px 11px;margin-top:8px}
+.sponsor-box{background:#fff7ec;border:1px solid #f0dcc0;border-radius:12px;padding:12px 14px;margin-bottom:6px}
+.sponsor-box p{font-size:11.5px;color:#7a5a2a;line-height:1.5;margin-bottom:10px}
+.sponsor-btn{width:100%;background:#fff;border:1.5px solid #e0b878;color:#9a5e00;border-radius:12px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+.sponsor-btn.on{background:#9a5e00;border-color:#9a5e00;color:#fff}
+.sponsor-btn:active{transform:scale(0.98)}
+
+/* Modal « D'où vient l'argent » */
+.hiw-overlay{position:absolute;inset:0;background:rgba(20,20,12,0.55);z-index:2000;display:flex;align-items:flex-end;justify-content:center;animation:adfade .18s ease}
+.hiw-sheet{position:relative;width:100%;max-width:440px;max-height:92%;overflow-y:auto;background:#fff;border-radius:22px 22px 0 0;padding:22px 20px 24px;box-shadow:0 -8px 30px rgba(0,0,0,0.25);animation:adup .22s cubic-bezier(.2,.8,.2,1)}
+.hiw-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:var(--g1);color:#888;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.hiw-kind{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--g4)}
+.hiw-title{font-family:'Fraunces',serif;font-size:22px;color:#1a1a0e;margin:3px 0 12px}
+.hiw-principle{background:#eef7e6;border:1px solid #cfe6bb;border-radius:12px;padding:12px 14px;font-size:13px;color:#2d5a0a;line-height:1.5;margin-bottom:14px}
+.hiw-flow{display:flex;flex-direction:column;align-items:stretch;gap:4px;margin-bottom:16px}
+.hiw-step{display:flex;gap:10px;align-items:flex-start;background:var(--g1);border-radius:10px;padding:10px 12px;font-size:12.5px;color:#444;line-height:1.4}
+.hiw-step.ok{background:#eef7e6;border:1px solid #cfe6bb;color:#2d5a0a}
+.hiw-em{font-size:18px;flex-shrink:0;line-height:1.2}
+.hiw-arrow{text-align:center;color:#ccc;font-size:13px;line-height:1}
+.hiw-q{background:#fff7ec;border:1px solid #f0dcc0;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.hiw-qt{font-size:13px;font-weight:700;color:#9a5e00;margin-bottom:5px}
+.hiw-q p{font-size:12px;color:#7a5a2a;line-height:1.5}
+.hiw-role{border-left:3px solid var(--g5);padding:2px 0 2px 12px;margin-bottom:16px}
+.hiw-rt{font-size:13px;font-weight:700;color:#1a1a0e;margin-bottom:4px}
+.hiw-role p{font-size:12.5px;color:#555;line-height:1.5}
+.hiw-ok{width:100%;background:var(--g5);color:#fff;border:none;border-radius:14px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+.hiw-ok:active{transform:scale(0.98)}
+
 /* Publication d'événements (commerçant) */
 .evt-add{background:#fff;border:1px solid var(--g2);border-radius:12px;padding:12px;margin-bottom:12px}
 .evt-add input,.evt-add select{font-family:'DM Sans',sans-serif;font-size:13px;border:1.5px solid var(--g2);border-radius:10px;padding:9px 11px;outline:none;color:#1a1a0e;background:#fff}

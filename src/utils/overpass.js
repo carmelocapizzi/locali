@@ -9,7 +9,7 @@ export function getMeta(type) {
 // ── Commerces embarqués (extrait OSM régional) ──────────────
 // Affichage instantané, précis et hors-ligne : aucune requête réseau bloquante
 // pour la zone couverte. Overpass n'est sollicité qu'en dehors de cette zone.
-const BUNDLED_BBOX = { s: 50.35, w: 3.35, n: 51.05, e: 4.75 }; // Hainaut + Brabant wallon + sud Bruxelles
+const BUNDLED_BBOX = { s: 49.45, w: 2.55, n: 51.55, e: 6.45 }; // toute la Belgique (extrait OSM national)
 export function inBundledBox(lat, lon) {
   return lat >= BUNDLED_BBOX.s && lat <= BUNDLED_BBOX.n && lon >= BUNDLED_BBOX.w && lon <= BUNDLED_BBOX.e;
 }

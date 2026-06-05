@@ -110,7 +110,10 @@ export default function Merchant() {
     if (!evt.date) { toast('Choisissez une date'); return; }
     const e = {
       id: 'evt-' + Date.now(), title: evt.title.trim(), type: evt.type, date: evt.date,
-      place: evt.place.trim() || (city && city !== 'Détection en cours…' ? city : ''), lat, lon,
+      place: evt.place.trim() || (city && city !== 'Détection en cours…' ? city : ''),
+      lat: merchant.shopLat != null ? merchant.shopLat : lat,
+      lon: merchant.shopLon != null ? merchant.shopLon : lon,
+      source: 'merchant', shopId: merchant.shopId || null, shopName: merchant.shopName || null, shopType: merchant.shopType || null,
     };
     setEvents((prev) => [...prev, e]);
     setEvt({ title: '', type: EVENT_TYPES[0], date: '', place: '' });

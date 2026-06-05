@@ -434,6 +434,31 @@ body{padding:16px}
 .markdate.event{background:var(--bark)}
 .mark-type{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:2px 7px;border-radius:20px;margin-right:7px;background:#e6f7d9;color:#2d7a0a;vertical-align:middle}
 .mark-type.evt{background:#fef3e0;color:#9a5e00}
+.markcard.clickable{cursor:pointer;transition:transform .12s,box-shadow .12s}
+.markcard.clickable:active{transform:scale(0.99)}
+.markcard.clickable:hover{box-shadow:0 3px 12px rgba(0,0,0,0.07)}
+.agenda-sec-title{font-family:'Fraunces',serif;font-size:16px;color:#1a1a0e;padding:16px 18px 2px;display:flex;align-items:center;gap:8px}
+.agenda-sec-count{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;color:#aaa;background:var(--g1);border-radius:20px;padding:1px 9px}
+
+/* Fiche détaillée marché / événement */
+.ad-overlay{position:absolute;inset:0;background:rgba(20,20,12,0.5);z-index:1200;display:flex;align-items:flex-end;justify-content:center;animation:adfade .18s ease}
+@keyframes adfade{from{opacity:0}to{opacity:1}}
+.ad-sheet{position:relative;width:100%;max-width:440px;background:#fff;border-radius:22px 22px 0 0;padding:22px 20px 26px;box-shadow:0 -8px 30px rgba(0,0,0,0.2);animation:adup .22s cubic-bezier(.2,.8,.2,1)}
+@keyframes adup{from{transform:translateY(40px)}to{transform:translateY(0)}}
+.ad-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;border:none;background:var(--g1);color:#888;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.ad-kind{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--g4)}
+.ad-title{font-family:'Fraunces',serif;font-size:21px;color:#1a1a0e;margin:3px 0 14px;padding-right:36px;line-height:1.2}
+.ad-row{display:flex;align-items:center;gap:9px;font-size:13.5px;color:#444;margin-bottom:9px}
+.ad-row i{color:var(--g4);font-size:17px;flex-shrink:0}
+.ad-row .badge-today{margin-left:4px}
+.ad-note{font-size:12px;color:#999;margin:4px 0 6px;line-height:1.4}
+.ad-organizer{background:var(--g1);border-radius:12px;padding:11px 13px;margin:10px 0 4px;display:flex;flex-direction:column;gap:8px;font-size:13px;color:#444}
+.ad-merchant-btn{align-self:flex-start;background:var(--bark);color:#fff;border:none;border-radius:20px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.ad-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.ad-btn{flex:1;min-width:96px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;background:var(--g1);color:#1a1a0e;border:1.5px solid var(--g2);border-radius:14px;padding:11px 8px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.ad-btn.primary{background:var(--g5);color:#fff;border-color:var(--g5)}
+.ad-btn.on{background:#fef3e0;border-color:#f3d9b0;color:var(--amber)}
+.ad-btn:active{transform:scale(0.97)}
 
 /* Publication d'événements (commerçant) */
 .evt-add{background:#fff;border:1px solid var(--g2);border-radius:12px;padding:12px;margin-bottom:12px}

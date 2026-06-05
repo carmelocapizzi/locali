@@ -126,10 +126,12 @@ export function LocaliProvider({ children }) {
         const la = pos.coords.latitude, lo = pos.coords.longitude;
         setGeo('real'); setGeoMsg(null);
         reverseGeocode(la, lo).then((c) => { if (!cancelled) { setCity(c); saveLoc(la, lo, c); } }).catch(() => saveLoc(la, lo, null));
-        go(la, lo);
+        // Si le GPS confirme ~la même position que celle déjà affichée, ne pas re-charger (anti-clignotement)
+        const near = saved && haversine(saved.lat, saved.lon, la, lo) < 300;
+        if (!near) go(la, lo);
       },
       (err) => { if (cancelled) return; setGeoMsg(geoErrMsg(err)); if (!saved) fallback(); },
-      { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 }
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 120000 }
     );
 
     return () => { cancelled = true; };

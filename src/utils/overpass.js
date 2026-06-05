@@ -6,6 +6,39 @@ export function getMeta(type) {
   return TYPE_META[type] || TYPE_META.other;
 }
 
+// ── Commerces embarqués (extrait OSM régional) ──────────────
+// Affichage instantané, précis et hors-ligne : aucune requête réseau bloquante
+// pour la zone couverte. Overpass n'est sollicité qu'en dehors de cette zone.
+const BUNDLED_BBOX = { s: 50.35, w: 3.35, n: 51.05, e: 4.75 }; // Hainaut + Brabant wallon + sud Bruxelles
+export function inBundledBox(lat, lon) {
+  return lat >= BUNDLED_BBOX.s && lat <= BUNDLED_BBOX.n && lon >= BUNDLED_BBOX.w && lon <= BUNDLED_BBOX.e;
+}
+
+let bundledPromise = null;
+function loadBundled() {
+  if (!bundledPromise) {
+    const url = (import.meta.env.BASE_URL || '/') + 'shops-be.json';
+    bundledPromise = fetch(url)
+      .then((r) => { if (!r.ok) throw new Error('http ' + r.status); return r.json(); })
+      .then((rows) => rows.map(([id, type, name, lat, lon, hours, addr, phone, website]) => ({
+        id, type, name, lat, lon, hours: hours || null, addr: addr || null, phone: phone || null, website: website || null, tags: {},
+      })))
+      .catch((e) => { bundledPromise = null; throw e; });
+  }
+  return bundledPromise;
+}
+
+function filterBundled(all, lat, lon, radiusM) {
+  const out = [];
+  for (const s of all) {
+    const dist = haversine(lat, lon, s.lat, s.lon);
+    if (dist > radiusM + 500) continue;
+    out.push({ ...s, dist, distStr: formatDist(dist) });
+  }
+  out.sort((a, b) => a.dist - b.dist);
+  return out;
+}
+
 const SHOP_TYPES = ['bakery', 'pastry', 'butcher', 'farm', 'organic', 'cheese', 'dairy', 'greengrocer', 'supermarket', 'convenience', 'deli'];
 
 export function buildOverpassQuery(lat, lon, radius) {
@@ -97,6 +130,14 @@ export function fetchOverpass(ep, body, ms = 22000) {
 // Interroge TOUS les miroirs Overpass EN PARALLÈLE → le plus rapide gagne.
 // Zone déjà chargée récemment → renvoi instantané depuis le cache.
 export async function loadShops(lat, lon, radiusM = DISCOVERY_RADIUS_M) {
+  // 1) Zone embarquée → instantané, précis, fiable (pas de dépendance réseau bloquante)
+  if (inBundledBox(lat, lon)) {
+    try {
+      const all = await loadBundled();
+      if (all && all.length) return filterBundled(all, lat, lon, radiusM);
+    } catch (e) { /* données embarquées indisponibles → on tente Overpass */ }
+  }
+  // 2) Hors zone embarquée → requête live Overpass (avec replis)
   const cached = readShopCache(lat, lon, radiusM);
   if (cached) return cached;
   const body = 'data=' + encodeURIComponent(buildOverpassQuery(lat, lon, radiusM));

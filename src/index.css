@@ -406,7 +406,7 @@ body{padding:16px}
 .loc-form{display:flex;gap:6px}
 .loc-form input{flex:1;min-width:0;border:none;border-radius:14px;padding:9px 13px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;background:rgba(255,255,255,0.96);color:#1a1a0e}
 .loc-form input::placeholder{color:#bbb}
-.loc-form button{flex-shrink:0;width:38px;border-radius:14px;background:#b8e690;color:#1a1a0e;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px}
+.loc-form button{flex-shrink:0;min-width:48px;padding:0 14px;border-radius:14px;background:#b8e690;color:#1a1a0e;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif}
 .loc-form button:active{transform:scale(0.94)}
 .loc-msg{font-size:11px;color:#ffd9a0;line-height:1.4;text-transform:none;letter-spacing:0}
 

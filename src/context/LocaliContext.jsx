@@ -120,9 +120,19 @@ export function LocaliProvider({ children }) {
     // 3) GPS réel — BASE de la recherche ; remplace la position enregistrée dès qu'il répond
     if (!navigator.geolocation) { if (!saved) fallback(); return () => { cancelled = true; }; }
 
+    let settled = false;
+    // Filet de sécurité : certains navigateurs mobiles n'appellent jamais le callback ni le timeout.
+    const watchdog = setTimeout(() => {
+      if (cancelled || settled) return;
+      settled = true;
+      setGeoMsg('Position GPS indisponible. Entrez votre commune ou code postal ci-dessous.');
+      if (!saved) fallback();
+    }, 13000);
+
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        if (cancelled) return;
+        if (cancelled || settled) return;
+        settled = true; clearTimeout(watchdog);
         const la = pos.coords.latitude, lo = pos.coords.longitude;
         setGeo('real'); setGeoMsg(null);
         reverseGeocode(la, lo).then((c) => { if (!cancelled) { setCity(c); saveLoc(la, lo, c); } }).catch(() => saveLoc(la, lo, null));
@@ -130,11 +140,11 @@ export function LocaliProvider({ children }) {
         const near = saved && haversine(saved.lat, saved.lon, la, lo) < 300;
         if (!near) go(la, lo);
       },
-      (err) => { if (cancelled) return; setGeoMsg(geoErrMsg(err)); if (!saved) fallback(); },
+      (err) => { if (cancelled || settled) return; settled = true; clearTimeout(watchdog); setGeoMsg(geoErrMsg(err)); if (!saved) fallback(); },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(watchdog); };
   }, [fetchShops]);
 
   // Marchés OSM autour de la position (rayon large, filtré ensuite au rayon choisi)
@@ -159,21 +169,25 @@ export function LocaliProvider({ children }) {
 
   // Activer / réessayer la géolocalisation à la demande (bouton « Activer ma position »)
   const locate = useCallback(() => {
-    if (!navigator.geolocation) { setGeoMsg('Géolocalisation non supportée. Entrez votre commune.'); return; }
+    if (!navigator.geolocation) { setGeoMsg('Géolocalisation non supportée par ce navigateur. Entrez votre commune.'); return; }
     setGeo('locating'); setGeoMsg(null); setCity('Localisation…');
+    let settled = false;
+    const revert = (msg) => {
+      setGeoMsg(msg);
+      const saved = readSavedLoc();
+      if (saved) { setGeo('saved'); setCity(saved.city || 'Position enregistrée'); }
+      else { setGeo('fallback'); setCity(FALLBACK.city); if (latRef.current == null) { setLat(FALLBACK.lat); setLon(FALLBACK.lon); fetchShops(FALLBACK.lat, FALLBACK.lon); } }
+    };
+    const watchdog = setTimeout(() => { if (settled) return; settled = true; revert('Le GPS ne répond pas. Entrez votre commune ou code postal.'); }, 16000);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (settled) return; settled = true; clearTimeout(watchdog);
         const la = pos.coords.latitude, lo = pos.coords.longitude;
-        setGeo('real'); setLat(la); setLon(lo);
+        setGeo('real'); setGeoMsg(null); setLat(la); setLon(lo);
         reverseGeocode(la, lo).then((c) => { setCity(c); saveLoc(la, lo, c); }).catch(() => saveLoc(la, lo, null));
         fetchShops(la, lo);
       },
-      (err) => {
-        setGeoMsg(geoErrMsg(err));
-        const saved = readSavedLoc();
-        if (saved) { setGeo('saved'); setCity(saved.city || 'Position enregistrée'); }
-        else { setGeo('fallback'); setCity(FALLBACK.city); if (latRef.current == null) { setLat(FALLBACK.lat); setLon(FALLBACK.lon); fetchShops(FALLBACK.lat, FALLBACK.lon); } }
-      },
+      (err) => { if (settled) return; settled = true; clearTimeout(watchdog); revert(geoErrMsg(err)); },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   }, [fetchShops]);

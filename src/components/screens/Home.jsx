@@ -12,7 +12,15 @@ import { sponsoredShopIds } from '../../utils/sponsors';
 
 export default function Home() {
   const { lat, lon, city, shops, status, geo, geoMsg, extEvents, osmMarkets, radiusKm, setRadiusKm, retry, locate, setPlace } = useLocali();
-  const { openShop, setScreen } = useUI();
+  const { openShop, setScreen, toast } = useUI();
+  const handleLocate = () => { toast('📍 Localisation en cours…'); locate(); };
+  const submitPlace = (e) => {
+    e.preventDefault();
+    const v = locInput.trim();
+    if (!v) { toast('Entrez une commune ou un code postal'); return; }
+    toast('Recherche de « ' + v + ' »…');
+    setPlace(v);
+  };
   const [cat, setCat] = useState('all');
   const [q, setQ] = useState('');
   const [locInput, setLocInput] = useState('');
@@ -63,25 +71,24 @@ export default function Home() {
         <div className="hero-loc">
           <i className="ti ti-map-pin" style={{ fontSize: 13 }} />
           <span>{city}</span>
-          <button className="relocate-btn" onClick={locate} title="Utiliser le GPS de l'appareil" disabled={geo === 'locating'}>
+          <button className="relocate-btn" onClick={handleLocate} title="Utiliser le GPS de l'appareil">
             <i className="ti ti-current-location" /> {geo === 'locating' ? 'Localisation…' : 'Charger ma position'}
           </button>
         </div>
 
-        {(geo === 'fallback' || geoMsg) && (
+        {(geo !== 'real' || geoMsg) && (
           <div className="loc-panel">
             {geoMsg && <div className="loc-msg">{geoMsg}</div>}
-            <form
-              className="loc-form"
-              onSubmit={(e) => { e.preventDefault(); if (locInput.trim()) setPlace(locInput); }}
-            >
+            <form className="loc-form" onSubmit={submitPlace}>
               <input
                 type="text"
-                placeholder="Sinon, entrez votre commune ou code postal (ex. Namur, 5000)"
+                inputMode="search"
+                enterKeyHint="search"
+                placeholder="Votre commune ou code postal (ex. Namur, 5000)"
                 value={locInput}
                 onChange={(e) => setLocInput(e.target.value)}
               />
-              <button type="submit" title="Valider"><i className="ti ti-arrow-right" /></button>
+              <button type="submit" title="Valider">OK</button>
             </form>
           </div>
         )}
